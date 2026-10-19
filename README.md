@@ -482,6 +482,9 @@ sd-gen-img-win/
 * **空环境变量**：本机 `$env:LOCALAPPDATA` 为空，而 `Join-Path` 写进数组字面量会对**每个**元素求值，
   一句失败整个数组构造就报 `Cannot bind argument to parameter 'Path' because it is null`。
   修法：每个候选路径先判空。同时改用 `$PSCommandPath` 推导脚本根目录（`$PSScriptRoot` 在被点源的文件里可能为空）。
+* **同一个坑的另一面**：`$env:APPDATA` 在受限/最小化的会话里也会为空，而 `gh` 靠
+  `%APPDATA%\GitHub CLI\hosts.yml` 找凭据，于是 `gh auth status` 报“未登录”——其实登录态一直在。
+  补上 `$env:APPDATA="C:\Users\<用户名>\AppData\Roaming"` 后 `gh` 与 `git push` 立即恢复正常，不必重新登录。
 
 ---
 
