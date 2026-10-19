@@ -1,0 +1,73 @@
+{
+  "runs": [
+    {
+      "mode": "img2img",
+      "prompt": "中国水墨画风格，宣纸质感，留白",
+      "negative_prompt": "",
+      "model_key": "sd-turbo",
+      "model_repo": "stabilityai/sd-turbo",
+      "model_label": "SD-Turbo（极速，原生 512）",
+      "precision_gear": "fp16",
+      "precision_label": "fp16（半精度，默认最快）",
+      "quality_gear": "turbo",
+      "quality_label": "turbo（极速：2 步）",
+      "lora": null,
+      "scheduler": "euler_trailing",
+      "width": 512,
+      "height": 512,
+      "steps": 2,
+      "guidance": 0.0,
+      "cfg_enabled": false,
+      "seed": 777,
+      "batch": 1,
+      "strength": 0.65,
+      "dtype": "float16",
+      "vae_dtype": "float32",
+      "placement": "gpu",
+      "load_seconds": 11.173,
+      "stage_seconds": {
+        "infer_total": 0.9162,
+        "denoise": 0.6127,
+        "encode_decode": 0.3035
+      },
+      "step_seconds": [
+        0.6127
+      ],
+      "infer_seconds": 0.916,
+      "wall_seconds": 12.089,
+      "vram": {
+        "peak_allocated_gb": 5.594208240509033,
+        "peak_reserved_gb": 6.978515625,
+        "free_before_gb": 5.7138671875,
+        "total_gb": 11.99951171875
+      },
+      "outputs": [
+        "outputs\\20261016-174125\\sd-turbo_fp16_turbo_s777_00.png"
+      ],
+      "sha256_first": "5d8c033d5c67e8e1bc99d1f1b80c150791c634f7a7df65c25c66d3e7d7c8cf51",
+      "gpu": "NVIDIA GeForce RTX 3060",
+      "gpu_cc": "sm_86",
+      "torch": "2.14.0+cu126",
+      "cuda": "12.6",
+      "timestamp": "2026-10-16T17:41:26"
+    }
+  ],
+  "wall_seconds": [
+    12.259
+  ],
+  "directives": {},
+  "source": {
+    "model": "cli",
+    "precision": "default",
+    "gear": "cli",
+    "size": "cli",
+    "steps": "default",
+    "guidance": "default",
+    "seed": "cli",
+    "batch": "default",
+    "negative": "default",
+    "strength": "cli",
+    "placement": "default"
+  },
+  "warnings": []
+}

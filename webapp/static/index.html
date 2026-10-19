@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>genimg · 本机生图</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header>
+  <h1>genimg <span>本机生图</span></h1>
+  <button class="ghost" id="btnCatalog">刷新能力信息</button>
+  <div class="hw" id="hw">正在检测硬件…</div>
+</header>
+
+<main class="layout">
+
+  <!-- ---------------- 左：输入 ---------------- -->
+  <section class="panel">
+    <div class="tabs" id="tabs">
+      <button data-mode="txt2img" class="active">文生图</button>
+      <button data-mode="img2img">图生图（上传图片）</button>
+    </div>
+
+    <input type="file" id="file" accept="image/*" hidden>
+    <div class="drop" id="drop" hidden>
+      <div id="dropInner">点击或拖拽图片到此处<br><span class="hint">支持 jpg / png / webp，最大 20MB</span></div>
+    </div>
+
+    <label class="field">
+      <span>提示词</span>
+      <textarea id="prompt" placeholder="a red panda astronaut floating in space, cinematic lighting, highly detailed">a red panda astronaut floating in space, cinematic lighting, highly detailed</textarea>
+    </label>
+    <div class="hintline">
+      <b>建议用英文提示词</b>（如 <b>watercolor painting style, rich details</b>）——中文会先经离线词典转英文，
+      但主体/动作类描述覆盖不到
+    </div>
+    <div class="hintline">
+      提示词里也能直接写挡位：<b>[精度=fp16]</b> <b>[画质=max]</b> <b>[尺寸=640x640]</b>（命令行与界面参数优先）
+    </div>
+
+    <label class="field">
+      <span>负向提示词（turbo / lightning 档关闭了 CFG，此项不生效）</span>
+      <textarea id="negative" placeholder="blurry, low quality, watermark">blurry, low quality, watermark</textarea>
+    </label>
+
+    <div class="grid2">
+      <label class="field">
+        <span>模型</span>
+        <select id="model"></select>
+      </label>
+      <label class="field">
+        <span>精度挡位</span>
+        <select id="precision"></select>
+      </label>
+    </div>
+
+    <label class="field">
+      <span>画质挡位</span>
+      <select id="gear"></select>
+    </label>
+    <div class="hintline" id="gearHint"></div>
+
+    <div class="grid2">
+      <label class="field">
+        <span>步数（留空=跟随画质挡位）</span>
+        <input id="steps" type="number" min="1" max="100" placeholder="自动">
+      </label>
+      <label class="field">
+        <span>CFG 引导（留空=跟随画质挡位）</span>
+        <input id="guidance" type="number" min="0" max="20" step="0.5" placeholder="自动">
+      </label>
+    </div>
+
+    <label class="field">
+      <span>尺寸</span>
+      <div class="size-row" id="sizes">
+        <button data-size="512" class="active">512 × 512</button>
+        <button data-size="640">640 × 640</button>
+        <button data-size="768">768 × 768</button>
+        <button data-size="1024">1024 × 1024</button>
+      </div>
+      <div class="grid2">
+        <input id="width" type="number" value="512" min="256" max="1536" step="8">
+        <input id="height" type="number" value="512" min="256" max="1536" step="8">
+      </div>
+    </label>
+
+    <div class="grid2">
+      <label class="field">
+        <span>种子（留空=随机）</span>
+        <input id="seed" type="number" placeholder="随机">
+      </label>
+      <label class="field">
+        <span>生成张数</span>
+        <input id="batch" type="number" value="1" min="1" max="4">
+      </label>
+    </div>
+
+    <label class="field" id="strengthWrap" hidden>
+      <span>改动强度 <b id="strengthVal">0.50</b>（越大越偏离原图；0.5 保主体）</span>
+      <input id="strength" type="range" min="0.1" max="1" step="0.05" value="0.5">
+    </label>
+
+    <button class="ghost" id="btnRecipe" style="width:100%;margin-bottom:10px" hidden>
+      用风格改造推荐配置（sd15 / balanced / 强度 0.50）
+    </button>
+
+    <button class="primary" id="go">生成</button>
+    <div id="adviceBox" style="margin-top:10px;display:flex;flex-direction:column;gap:8px"></div>
+    <div class="muted" id="statNote" style="margin-top:8px"></div>
+  </section>
+
+  <!-- ---------------- 右：结果 ---------------- -->
+  <section class="panel">
+    <h2>生成结果</h2>
+    <div class="status" id="status">
+      <div><span class="badge idle" id="badge">空闲</span></div>
+      <div class="muted">填写提示词后点击「生成」。首次生成需要加载权重，之后同精度下会复用。</div>
+    </div>
+    <div class="muted" id="preloadNote"></div>
+    <div class="bar" id="barWrap" hidden><i id="bar"></i></div>
+    <div class="results" id="results"></div>
+    <div class="kv" id="metrics"></div>
+
+    <h2 style="margin-top:20px">最近生成</h2>
+    <div class="history" id="history"><span class="muted">还没有记录</span></div>
+  </section>
+
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

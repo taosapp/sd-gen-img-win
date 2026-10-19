@@ -1,0 +1,30 @@
+# ---- 模型权重与下载缓存（约 17GB / 2.5GB，用 tools\fetch_models.py 重新获取）----
+models/
+.pipcache/
+
+# ---- 生成结果与运行日志 ----
+outputs/
+logs/
+.zwork/
+
+# ---- 实测素材：只保留汇总表(CSV/JSON)与 contact sheet，逐张样本不入库 ----
+results/**/samples/
+results/img2img_exp/*/
+results/lowres_exp/*/
+results/zh_test*/
+results/zh_verify*/
+results/zh_final/
+results/zh_dict_final/
+
+# ---- Python ----
+__pycache__/
+*.py[cod]
+.venv/
+env/
+
+# ---- 编辑器 / 系统 ----
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+.DS_Store
