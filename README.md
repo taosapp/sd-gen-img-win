@@ -17,6 +17,9 @@
 | 怎么指定挡位 | 命令行 `--precision fp16 --gear balanced`，**或直接在提示词里写** `[精度=fp16] [画质=max] [尺寸=640x640]` |
 | 有可视化界面吗 | 有。**双击 `web.bat`** 即可（自动预热模型并打开浏览器）；支持**上传图片**与**文生图 / 图生图**切换，见 §6.5 |
 
+> 与同机另一套 ComfyUI 工作流集（Qwen-Image-2.1，中文原生）的横向对比：
+> **[docs/comparison-vs-comfyui.md](docs/comparison-vs-comfyui.md)** —— 谁适合出草稿、谁适合出成品，表格里写清楚了。
+
 ---
 
 ## 2. 本机硬件实测
