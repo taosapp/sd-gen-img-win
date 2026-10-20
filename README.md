@@ -51,7 +51,7 @@ micro-conditioning 输入。直接在 512×512 出图时，diffusers 默认把�
 
 | 配置 | 512×512 出图表现 |
 |---|---|
-| SDXL + 默认条件化 | 出现"三格贴纸"式构图崩坏（见 `results/lowres_exp/A_sdxl512_default_cond/`） |
+| SDXL + 默认条件化 | 出现"三格贴纸"式构图崩坏（本轮实验图已从仓库移除，可在提交 `8dfa800` 中查看） |
 | SDXL + 原生分辨率条件化 (1024) | 见 §7 实测（脚本 `tools/exp_lowres.py`） |
 | SD1.5（原生 512） | 构图正常 |
 | SD-Turbo（原生 512） | 构图正常，且最快 |
@@ -214,7 +214,7 @@ HTTP 接口（脚本调用也方便）：
 
 已做端到端实测（`tools/test_web.py` 自动跑）：文生图 0.65s、上传图片做图生图 0.35s，
 返回的图片是有效 PNG（校验了 PNG 签名），`/api/history` 可回列出历史记录。
-挡位对照图见 `results/bench/contact_sheet.png`。
+挡位对照图可在提交 `8dfa800` 中找到（`results/bench/contact_sheet.png`；仓库现已不含图片）。
 
 **启动时预热**：`web.bat` 默认带 `--preload`，服务起来后会在后台把默认挡位
 （sd-turbo / bf16 / turbo）加载进显存，并空跑一步把首次前向的 kernel 选择也热掉。
@@ -253,7 +253,7 @@ HTTP 接口（脚本调用也方便）：
 2. **`turbo` / `lightning` 的 CFG ≤ 1**，等于关闭引导：提示词与负向提示词几乎不起作用。
 3. **中文提示词效果明显弱于英文**：SD 系列的 CLIP 文本编码器以英文语料为主。
    同参数、同种子下，中文「水彩风格」出的是糊在一起的色块；英文
-   `watercolor painting style` 才出纸质边缘与湿画法晕染（对照图 `results/img2img_exp/contact_sheet.png`）。
+   `watercolor painting style` 才出纸质边缘与湿画法晕染（对照图可在提交 `8dfa800` 中查看）。
 
 **推荐配方**：
 
@@ -422,7 +422,7 @@ python tools\make_poster.py `
 
 #### 6.9.1 对齐外部平台效果：做了什么、差在哪
 
-对照图：`results/ext_ref/a1.jpg`、`a2.jpg`（外部平台生成）。它们的共同点是
+对照对象是外部平台生成的两张图（已随 `results/` 从仓库移除，见提交 `8dfa800`）。它们的共同点是
 **水彩质感 + 纸纹底 + 衬线小字排版 + 主体只占约 40–50% 宽、大片留白**。
 据此对 `poster.py` 做了四项改进：
 
@@ -508,7 +508,7 @@ UNet + CLIP：77 token 上限、不会写字、对"画成水彩"只能做风格�
 | sd-turbo | fp16 | turbo | 2 | **0.45s** | 0.16s | 0.29s | 3.33GB | gpu | ✅ |
 
 **17/18 个配置可跑通，其中 15 个满足 30 秒预算**；最快 0.34s（sd-turbo/bf16），
-最慢可跑通项 62.84s（sdxl/tf32，已超预算）。原始数据：`results/bench/bench.csv`、`bench.json`。
+最慢可跑通项 62.84s（sdxl/tf32，已超预算）。原始 CSV/JSON 已随 `results/` 移除；表中数字均来自当时的本机实测。
 
 ### 7.2 从数据里得出的四条结论
 
@@ -527,7 +527,7 @@ UNet + CLIP：77 token 上限、不会写字、对"画成水彩"只能做风格�
 
 ### 7.3 512×512 到底该用哪个模型（含对照实验）
 
-同提示词、同种子、512×512，横向比对（图在 `results/lowres_exp/`）：
+同提示词、同种子、512×512，横向比对（原图在提交 `8dfa800` 的 `results/lowres_exp/` 里）：
 
 | 配置 | 耗时 | 512 画质表现 |
 |---|---|---|
@@ -587,7 +587,7 @@ sd-gen-img-win/
 │  └─ selfcheck.py            # 语法/导入自检
 ├─ models/                    # 权重缓存（HF 格式）
 ├─ outputs/                   # 生成结果
-└─ results/                   # 基准与实验数据
+└─ results/                   # 基准与实验数据（仓库内为空，产物不入库）
 ```
 
 ---
