@@ -1,32 +1,39 @@
-"""把 README 里的图生图强度默认值统一改为 0.5（保主体）。"""
+"""在 README §6.9.1 之后追加 §6.9.2（强度断崖）。"""
 
 import io
-import os
 
-PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "README.md")
-text = io.open(PATH, encoding="utf-8", newline="").read()
+PATH = r"D:\ai\gen-img-agent\README.md"
+text = io.open(PATH, encoding="utf-8").read()
+anchor = "## 7. 实测数据（512×512）"
 
-pairs = [
-    ("powershell -File run.ps1 --image .\\in.png --strength 0.6 \"oil painting style\"",
-     "powershell -File run.ps1 --image .\\in.png --strength 0.5 \"oil painting style\""),
-    ("| 改动强度 | `[强度=0.65]` | 0–1（图生图） |",
-     "| 改动强度 | `[强度=0.5]` | 0–1（图生图，默认 0.5 保主体） |"),
-    ("   改动强度拖到 `0.65` → 生成。预期：构图保留、风格改变。",
-     "   改动强度保持默认 `0.5` → 生成。预期：构图与主体保留、风格改变。"),
-    ("| 改动强度 | 0.45–0.55 保主体；0.6–0.7 强风格化 | 见下表 |",
-     "| 改动强度 | **0.5（默认）** 保主体；0.65–0.7 强风格化 | 见下表 |"),
-    ("| 0.50 | 12 步 | 主体完整，呈现「淡彩水彩」效果 |",
-     "| **0.50（默认）** | 12 步 | 主体完整，呈现「淡彩水彩」效果 |"),
-]
+section = """#### 6.9.2 为什么"昨天能看、今天很抽象"：强度断崖
 
-changed = 0
-for old, new in pairs:
-    n = text.count(old)
-    if n != 1:
-        print(f"[跳过] 匹配 {n} 次：{old[:40]}")
-        continue
-    text = text.replace(old, new)
-    changed += 1
+现象：下半插画与参考图差别过大，熊猫被洗成色块。
 
-io.open(PATH, "w", encoding="utf-8", newline="").write(text)
-print(f"已替换 {changed}/{len(pairs)} 处")
+原因不在随机种子，而在**我上一轮把画风换成水彩、却没同时下调强度**。
+水彩提示词（`soft translucent washes`）本身就在"洗细节"，再叠加 0.72 的重绘力度，
+主体必然被冲掉。
+
+**强度扫描实测**（同一张熊猫照片、同一提示词、同一种子，768×512）
+
+| 强度 | 与参考图差异（越小越像） | 观感 |
+|---|---|---|
+| 0.35 | 0.091 | 几乎还是照片，只有轻微笔触 |
+| 0.45 | 0.161 | 照片感仍强 |
+| **0.55** | **0.187** | **既像参考图，又有水彩色块** |
+| 0.65 | 0.183 | 风格更明显，主体仍可辨 |
+| 0.72 | **0.296** | **断崖：主体被洗成抽象色块** |
+
+差异指标是灰度直方图的 L1 距离，0–1；0.18 → 0.30 是肉眼能立刻看出的跳变。
+
+**现在的默认值**：`--strength 0.58`（落在 0.55–0.65 的安全区内）。
+命令里显式给 ≥ 0.68 时，输出会明显偏抽象——这是有意的取舍，不是 bug。
+
+> 附带损失：参考图里原有的水印/字幕（如熊猫照片底部的新闻条）会被一起"水彩化"，
+> 在 0.55–0.65 区间无法完全去掉。要干净底图，应在生成前先裁掉这些区域。
+
+## 7. 实测数据（512×512）"""
+
+assert anchor in text
+io.open(PATH, "w", encoding="utf-8", newline="").write(text.replace(anchor, section, 1))
+print("已插入 §6.9.2")

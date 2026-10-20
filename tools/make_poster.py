@@ -30,8 +30,8 @@ def main() -> int:
     ap.add_argument("--precision", default="fp16")
     ap.add_argument("--gear", default="balanced")
     ap.add_argument("--size", default="3:4", help="画幅比例或 WxH，默认 3:4")
-    ap.add_argument("--strength", type=float, default=0.82,
-                    help="下半插画的改动强度：0.70 保主体可辨识，0.85 完全抽象")
+    ap.add_argument("--strength", type=float, default=0.58,
+                    help="下半插画改动强度：0.55–0.65 既像参考图又有画感；≥ 0.70 主体会被洗掉（实测）")
     ap.add_argument("--seed", type=int, default=None)
     ap.add_argument("--style", default="", help="覆盖画风提示词")
     ap.add_argument("--preset", choices=["watercolor", "paper"], default="watercolor",

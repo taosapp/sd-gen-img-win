@@ -200,7 +200,7 @@ def render(
     quality,
     width: int,
     height: int,
-    strength: float = 0.72,
+    strength: float = 0.58,
     seed: int | None = None,
     style_override: str = "",
     preset: str = "watercolor",
