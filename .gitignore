@@ -36,3 +36,6 @@ env/
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# 实测产物一律不入库（体积大，可用 tools 重新生成）
+results/

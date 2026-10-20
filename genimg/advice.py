@@ -20,6 +20,35 @@ _CJK_RE = re.compile(r"[\u4e00-\u9fff]")
 CLIP_TOKEN_LIMIT = 77
 
 
+# 实测（sd15 / balanced / 同种子）：
+#   watercolor style  → 生效
+#   cyberpunk style   → 生效
+#   American comic style → **完全被无视**，出来的还是照片
+# 区不在“风格名”本身，而在这个名字有没有对应的具体视觉特征。
+# 把模糊的风格名换成具体画面元素，立刻出效果。
+WEAK_STYLES = [
+    (
+        "American comic style",
+        re.compile(r"american\s+comic|comic\s+style", re.IGNORECASE),
+        "American comic book illustration, bold black ink outlines, flat colors, halftone dots",
+    ),
+]
+
+
+def style_tips(prompt: str) -> list[str]:
+    """风格名太模糊时给出实测有效的替代写法。"""
+    text = prompt or ""
+    low = text.lower()
+    tips: list[str] = []
+    for label, pattern, expanded in WEAK_STYLES:
+        if pattern.search(text) and "ink outline" not in low and "halftone" not in low:
+            tips.append(
+                f"「{label}」在 CLIP 里权重很弱：实测同一句提示词里它会被完全无视（出来的还是照片），"
+                f"加负向提示词也压不住。改成具体视觉特征立刻生效，例如：{expanded}"
+            )
+    return tips
+
+
 def estimate_tokens(text: str) -> int:
     """粗略估算 token 数：中文约 1 字 1 token，英文约 4 字符 1 token。"""
     if not text:
@@ -96,5 +125,7 @@ def check_request(
             f"约 {100 - kept_pct}% 的内容会被静默截断（后面的“AVOID/风格细节”这类尾巴几乎全丢）。"
             f"对策：把最关键的 10–15 个词放最前面；长描述拆成多次生成再挑。"
         )
+
+    tips.extend(style_tips(prompt))
 
     return tips

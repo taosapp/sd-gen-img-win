@@ -479,6 +479,40 @@ UNet + CLIP：77 token 上限、不会写字、对"画成水彩"只能做风格�
 > 附带损失：参考图里原有的水印/字幕（如熊猫照片底部的新闻条）会被一起"水彩化"，
 > 在 0.55–0.65 区间无法完全去掉。要干净底图，应在生成前先裁掉这些区域。
 
+### 6.10 为什么风格词会被无视（实测）
+
+现象：`A panda is running on the grassland on a sunny day, American comic style.` 出来是照片，
+风格词像没写一样。
+
+**对照实验**（sd15 / balanced / 512×512 / 同一 seed）
+
+| 提示词 | 结果 |
+|---|---|
+| `..., American comic style.` | 照片 |
+| 同上 + 负向 `photo, photorealistic, realistic, dslr, 35mm` | **仍是照片** |
+| `American comic style, ...`（挪到最前面） | 仍是照片 |
+| `American comic book illustration, bold black ink outlines, flat colors, halftone dots` | **漫画** |
+
+同条件再测两个风格名：
+
+| 提示词 | 结果 |
+|---|---|
+| `a lake at sunset, watercolor style` | **水彩**（生效） |
+| `a street at night, cyberpunk style` | **赛博朋克**（生效） |
+
+**结论**：不是"所有风格名都失效"，而是 **CLIP 只认训练时见过的"词—画面"对应**。
+`watercolor`、`cyberpunk` 在训练数据里有稳定的视觉锚点；`American comic` 没有——
+`comic` 还同时指"喜剧"，语义被稀释，于是模型退回最安全的解释：一张照片。
+
+**写法建议**：把风格名换成 3–5 个**具体视觉特征**（线条 / 配色 / 材质 / 光），
+或用一两个它认识的锚点词再加细节。**加负向、调顺序都救不回来**（上表已验证）。
+
+**模型也有影响**：同一句提示词，`sd-turbo / turbo`（2 步、CFG=0）出来反而是漫画，
+`sd15 / balanced` 出来是照片——蒸馏模型天然更"插画化"，写实底模更偏向照片。
+
+工具会提示：检测到 `American comic style` 这类弱锚点写法时，`/api/advice` 与命令行会直接
+给出替换建议（见 `genimg/advice.py` 的 `WEAK_STYLES`）。
+
 ## 7. 实测数据（512×512）
 
 ### 7.1 全量挡位矩阵
