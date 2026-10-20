@@ -96,7 +96,7 @@ QUALITY_GEARS: dict[str, QualityGear] = {
         scheduler="euler_trailing",
         label="turbo（极速：2 步）",
         note="蒸馏模型的少步采样，2 步出图。guidance=0 表示不启用 CFG，因此负向提示词不起作用。",
-        only_family=("sd-turbo", "sdxl-turbo"),
+        only_family=("sd-turbo",),
     ),
     "lightning": QualityGear(
         key="lightning",
@@ -171,7 +171,6 @@ class ModelProfile:
     note: str
     variant: str | None = None  # 默认下载的仓库变体（fp16 / None=fp32）
     aliases: tuple[str, ...] = ()
-    offered: bool = True  # False = 不提供下载入口（界面不列出，除非本地已有权重）
     extra: dict = field(default_factory=dict)
 
 
@@ -214,20 +213,6 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
         note="对抗蒸馏的 512 原生模型，1~4 步即可出图，是 512 分辨率下最快的可用档位；代价是不支持 CFG/负向提示词。",
         variant="fp16",
         aliases=("turbo", "sdturbo"),
-    ),
-    "sdxl-turbo": ModelProfile(
-        key="sdxl-turbo",
-        repo="stabilityai/sdxl-turbo",
-        family="sdxl-turbo",
-        label="SDXL-Turbo（快，SDXL 蒸馏版）",
-        native_size=512,
-        params_billion=3.4,
-        supports_negative=False,
-        default_gear="turbo",
-        note="SDXL 的对抗蒸馏版，1~4 步出图，画质高于 SD-Turbo；同样不支持 CFG。本项不提供下载入口（SDXL + Lightning LoRA 已覆盖同类需求），需自行放置权重。",
-        variant="fp16",
-        aliases=("xlturbo",),
-        offered=False,
     ),
 }
 

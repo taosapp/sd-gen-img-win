@@ -5,7 +5,6 @@ import urllib.request
 
 REPOS = {
     "sdxl": "stabilityai/stable-diffusion-xl-base-1.0",
-    "sdxl-turbo": "stabilityai/sdxl-turbo",
     "sd15": "stable-diffusion-v1-5/stable-diffusion-v1-5",
     "sd-turbo": "stabilityai/sd-turbo",
     "lightning": "ByteDance/SDXL-Lightning",

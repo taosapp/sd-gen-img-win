@@ -11,9 +11,9 @@ import urllib.request
 
 PROXY = "http://10.10.100.199:3128"
 TARGETS = [
-    ("hf_api", "https://huggingface.co/api/models/stabilityai/sdxl-turbo"),
-    ("hf_mirror_api", "https://hf-mirror.com/api/models/stabilityai/sdxl-turbo"),
-    ("hf_resolve", "https://huggingface.co/stabilityai/sdxl-turbo/resolve/main/model_index.json"),
+    ("hf_api", "https://huggingface.co/api/models/stabilityai/sd-turbo"),
+    ("hf_mirror_api", "https://hf-mirror.com/api/models/stabilityai/sd-turbo"),
+    ("hf_resolve", "https://huggingface.co/stabilityai/sd-turbo/resolve/main/model_index.json"),
     ("torch_idx", "https://download.pytorch.org/whl/cu126/torch/"),
     ("pypi", "https://pypi.org/pypi/diffusers/json"),
 ]

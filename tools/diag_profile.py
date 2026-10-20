@@ -71,7 +71,7 @@ with torch.no_grad():
     # UNet 单步（SDXL 需要 added_cond_kwargs）
     lat = torch.randn(1, 4, 64, 64, device=dev, dtype=dt)
     ts = torch.tensor([500.0], device=dev, dtype=dt)
-    if profile.family in ("sdxl", "sdxl-turbo"):
+    if profile.family == "sdxl":
         ehs = torch.randn(1, 77, 2048, device=dev, dtype=dt)
         add = {
             "text_embeds": torch.randn(1, 1280, device=dev, dtype=dt),

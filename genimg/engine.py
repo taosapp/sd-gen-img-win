@@ -40,7 +40,6 @@ PIPELINE_CLASSES = {
     "sd15": ("StableDiffusionPipeline", "StableDiffusionImg2ImgPipeline"),
     "sd-turbo": ("StableDiffusionPipeline", "StableDiffusionImg2ImgPipeline"),
     "sdxl": ("StableDiffusionXLPipeline", "StableDiffusionXLImg2ImgPipeline"),
-    "sdxl-turbo": ("StableDiffusionXLPipeline", "StableDiffusionXLImg2ImgPipeline"),
 }
 
 
@@ -294,7 +293,7 @@ class Engine:
             "use_safetensors": True,
         }
         # add_watermarker 仅在 XL 系列管线支持，其他管线会打印无意义的警告
-        if profile.family in ("sdxl", "sdxl-turbo"):
+        if profile.family == "sdxl":
             kwargs["add_watermarker"] = False
         # 变体选择：优先用仓库发布的高性能变体；precision 为 fp16 时优先 fp16 变体（读盘量减半）
         variant = profile.variant

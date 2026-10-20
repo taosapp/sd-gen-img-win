@@ -10,7 +10,6 @@ UA = {"User-Agent": "Mozilla/5.0"}
 REPOS = [
     "stable-diffusion-v1-5/stable-diffusion-v1-5",
     "stabilityai/stable-diffusion-xl-base-1.0",
-    "stabilityai/sdxl-turbo",
     "ByteDance/SDXL-Lightning",
 ]
 

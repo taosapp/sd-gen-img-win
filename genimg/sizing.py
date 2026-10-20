@@ -29,7 +29,6 @@ from PIL import Image, ImageFilter
 # 各模型的"原生训练分辨率"（短边基准）
 NATIVE_BASE = {
     "sdxl": 1024,
-    "sdxl-turbo": 1024,
     "sd15": 512,
     "sd-turbo": 512,
 }

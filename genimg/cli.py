@@ -45,7 +45,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--mode", choices=["txt2img", "img2img"], default=None, help="生图模式，默认 txt2img")
     p.add_argument("--image", "-i", default=None, help="图生图的初始图片路径")
     p.add_argument("--strength", type=float, default=None, help="图生图改动强度 0~1，越大改动越多（默认 0.5，保主体）")
-    p.add_argument("--model", "-m", default=None, help="底模：sdxl / sd15 / sd-turbo / sdxl-turbo")
+    p.add_argument("--model", "-m", default=None, help="底模：sdxl / sd15 / sd-turbo")
     p.add_argument("--precision", "-p", default=None, help="精度挡位：fp16 / bf16 / tf32 / fp32 / fp8")
     p.add_argument(
         "--gear", "-g", default=None, help="画质挡位：turbo / lightning / lightning8 / draft / balanced / quality / max"
