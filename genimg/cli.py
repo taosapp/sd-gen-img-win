@@ -13,6 +13,8 @@ from .zh_prompt import contains_cjk
 from .directives import describe as describe_directives
 from .directives import parse_directives
 from .engine import Engine, GenRequest, is_repo_cached
+from .sizing import image_size
+from .sizing import resolve as resolve_size
 from .presets import (
     MODEL_PROFILES,
     PRECISION_GEARS,
@@ -48,9 +50,14 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--gear", "-g", default=None, help="画质挡位：turbo / lightning / lightning8 / draft / balanced / quality / max"
     )
-    p.add_argument("--size", "-s", default=None, help="输出尺寸，默认 512x512")
-    p.add_argument("--width", type=int, default=None, help="输出宽度（覆盖 --size 的宽）")
-    p.add_argument("--height", type=int, default=None, help="输出高度（覆盖 --size 的高）")
+    p.add_argument(
+        "--size",
+        "-s",
+        default=None,
+        help="输出尺寸：固定像素 768x1024，或比例 3:4 / 2:3 / 16:9，或 match（跟随参考图）；默认按提示词/参考图/模型原生自动判断",
+    )
+    p.add_argument("--width", type=int, default=None, help="输出宽度（需与 --height 同时给出）")
+    p.add_argument("--height", type=int, default=None, help="输出高度（需与 --width 同时给出）")
     p.add_argument("--steps", type=int, default=None, help="采样步数（覆盖画质挡位）")
     p.add_argument("--guidance", "--cfg", dest="guidance", type=float, default=None, help="CFG 引导强度")
     p.add_argument("--seed", type=int, default=None, help="随机种子，固定后可复现")
@@ -82,11 +89,10 @@ def build_parser() -> argparse.ArgumentParser:
 # 参数合并
 # --------------------------------------------------------------------------------------
 def _parse_size(value: str):
-    txt = value.replace("×", "x").replace("*", "x").lower().strip()
-    if "x" not in txt:
-        raise ValueError(f"尺寸应形如 512x512，收到 {value!r}")
-    w, h = txt.split("x", 1)
-    return int(w), int(h)
+    """保留给外部调用：把 ``3:4`` / ``768x1024`` 解成尺寸或比例。"""
+    from .sizing import parse_spec
+
+    return parse_spec(value)
 
 
 def resolve_request(args, project_root: str):
@@ -125,17 +131,29 @@ def resolve_request(args, project_root: str):
     gear_name = pick(args.gear, "gear", profile.default_gear)
     quality = resolve_quality(str(gear_name), profile)
 
-    width, height = 512, 512
-    size_from = None
-    if args.size is not None:
-        width, height, size_from = *_parse_size(args.size), "cli"
-    elif "size" in d:
-        width, height, size_from = d["size"][0], d["size"][1], "prompt"
-    if args.width is not None:
-        width, size_from = args.width, "cli"
-    if args.height is not None:
-        height, size_from = args.height, "cli"
-    source["size"] = size_from or "default"
+    # 尺寸优先级：显式宽高 > --size（512x768 / 3:4 / match）> 提示词指令 > 提示词里的画幅描述 > 参考图 > 模型原生
+    spec = args.size
+    if spec is None and "size" in d:
+        parsed_size = d["size"]
+        if parsed_size[0] == "wh":
+            spec = f"{parsed_size[1]}x{parsed_size[2]}"
+        else:
+            spec = f"{parsed_size[1]:g}:{parsed_size[2]:g}"
+
+    init_size = image_size(args.image) if getattr(args, "image", None) else None
+    decision = resolve_size(
+        width=args.width,
+        height=args.height,
+        spec=spec,
+        prompt=parsed.prompt,
+        model_key=profile.key,
+        init_size=init_size,
+        model_native=profile.native_size,
+    )
+    width, height = decision.width, decision.height
+    source["size"] = decision.source
+    if decision.note:
+        warnings.append(f"尺寸：{decision.note}")
 
     steps = pick(args.steps, "steps", None)
     guidance = pick(args.guidance, "guidance", None)
@@ -158,6 +176,8 @@ def resolve_request(args, project_root: str):
         gear=quality.key,
         width=int(width),
         height=int(height),
+        size_source=decision.source,
+        size_note=decision.note,
         steps=int(steps) if steps is not None else None,
         guidance=float(guidance) if guidance is not None else None,
         seed=int(seed) if seed is not None else None,

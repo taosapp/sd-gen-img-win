@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from .advice import check_request, effective_steps
+from .sizing import fit_image
 from .zh_prompt import translate
 from .presets import (
     LORA_REGISTRY,
@@ -67,6 +68,8 @@ class GenRequest:
     out_dir: str | None = None  # 自定义输出目录（Web 界面按任务号归档时用）
     extra_call_kwargs: dict = field(default_factory=dict)  # 透传给 diffusers 管线的额外参数
     translate: str = "dict"  # 中文提示词处理：dict（离线词典） | off
+    size_source: str = ""  # 尺寸来源（cli / 提示词「3:4」 / 参考图 / default），仅用于回显
+    size_note: str = ""  # 尺寸与参考图处理的说明（是否缩放、是否留白）
     def size_str(self) -> str:
         return f"{self.width}x{self.height}"
 
@@ -492,10 +495,16 @@ class Engine:
         timer = StageTimer(sync=True)
 
         init_image = None
+        fit_note = ""
         if req.mode == "img2img":
             if not req.init_image or not os.path.exists(req.init_image):
                 return GenResult(ok=False, error=f"图生图需要有效的初始图片：{req.init_image!r}")
-            init_image = Image.open(req.init_image).convert("RGB").resize((req.width, req.height), Image.LANCZOS)
+            # 关键：不能 resize((w, h))，那会把横图压扁。等比缩放后模糊留白，
+            # 既保住主体比例，又给模型一个可以"延展背景"的起点。
+            _raw = Image.open(req.init_image).convert("RGB")
+            init_image, fit_note = fit_image(_raw, req.width, req.height)
+
+        init_latents = None
 
         generator = None
         if seed is not None:
@@ -513,6 +522,18 @@ class Engine:
         vae_dtype = next(pipe.vae.parameters()).dtype
         need_latent_cast = vae_dtype != main_dtype
         cast_state = [False]
+
+        # img2img 且 VAE 精度 != UNet 精度（fp16 挡位把 VAE 升到了 fp32）：diffusers 会把输入图
+        # 先 cast 成 UNet 的 fp16，再挤进 fp32 VAE → "Input type (Half) and bias type (float)"。
+        # 解法：自己用 VAE 精度编码出 4 通道 latent，管线见 shape[1]==4 就跳过 VAE 编码。
+        if req.mode == "img2img" and need_latent_cast:
+            with torch.no_grad():
+                _t = pipe.image_processor.preprocess(
+                    init_image, height=req.height, width=req.width
+                ).to(device=pipe.vae.device, dtype=vae_dtype)
+                _dist = pipe.vae.encode(_t).latent_dist
+                _lat = _dist.sample(generator) if generator is not None else _dist.sample()
+                init_latents = (_lat * pipe.vae.config.scaling_factor).to(main_dtype)
 
         def _cb(_pipe, step_index, timestep, cb_kwargs):
             if torch.cuda.is_available():
@@ -556,7 +577,7 @@ class Engine:
             call_kwargs["width"] = req.width
             call_kwargs["height"] = req.height
         else:
-            call_kwargs["image"] = init_image
+            call_kwargs["image"] = init_latents if init_latents is not None else init_image
             call_kwargs["strength"] = req.strength
         # 透传参数（例如 SDXL 的 original_size / target_size micro-conditioning）
         if req.extra_call_kwargs:
@@ -566,6 +587,16 @@ class Engine:
         os.makedirs(out_dir, exist_ok=True)
 
         with VramMonitor() as vram:
+            # fp16 挡位：VAE 是 fp32，而管线交给 decode 的 latent 仍是 fp16。
+            # 不依赖 callback 的时序，直接在解码入口转一次 dtype，结束再恢复。
+            _orig_decode = None
+            if need_latent_cast:
+                _orig_decode = pipe.vae.decode
+
+                def _decode_any_dtype(latents, *a, **kw):
+                    return _orig_decode(latents.to(vae_dtype), *a, **kw)
+
+                pipe.vae.decode = _decode_any_dtype
             try:
                 if torch.cuda.is_available():
                     torch.cuda.synchronize()
@@ -580,6 +611,9 @@ class Engine:
                 if self.verbose or os.environ.get("GENIMG_TRACEBACK"):
                     print(tb)
                 return GenResult(ok=False, error=f"{type(exc).__name__}: {exc}", meta={"traceback": tb})
+            finally:
+                if _orig_decode is not None:
+                    pipe.vae.decode = _orig_decode
 
         images = output.images
         denoise = sum(step_times)
@@ -602,6 +636,10 @@ class Engine:
             meta.add_text("quality_gear", quality.key)
             meta.add_text("steps", str(steps))
             meta.add_text("guidance", str(guidance))
+            if req.size_source:
+                meta.add_text("size_source", req.size_source)
+            if fit_note:
+                meta.add_text("init_fit", fit_note)
             if one_seed is not None:
                 meta.add_text("seed", str(one_seed))
             fname = (
@@ -639,6 +677,9 @@ class Engine:
             "scheduler": quality.scheduler,
             "width": req.width,
             "height": req.height,
+            "size_source": req.size_source,
+            "size_note": req.size_note,
+            "init_fit": fit_note,
             "steps": steps,
             "effective_steps": eff_steps,
             "advice": tips,

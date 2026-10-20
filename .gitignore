@@ -15,6 +15,9 @@ results/zh_test*/
 results/zh_verify*/
 results/zh_final/
 results/zh_dict_final/
+results/poster_ratio_exp/*/
+results/fp16fix_*/
+results/ratio_timing/
 
 # ---- Python ----
 __pycache__/

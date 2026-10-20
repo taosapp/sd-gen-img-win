@@ -53,7 +53,7 @@ async function loadCatalog() {
   syncModel();
   $('width').value = last.width || data.defaults.width;
   $('height').value = last.height || data.defaults.height;
-  markSizePreset();
+  setSizeMode('auto');
 
   await loadHistory();
   refreshAdvice();
@@ -108,12 +108,26 @@ function setMode(mode) {
   scheduleAdvice();
 }
 
-function markSizePreset() {
-  const w = Number($('width').value);
-  const h = Number($('height').value);
-  document.querySelectorAll('#sizes button').forEach((b) => {
-    b.classList.toggle('active', Number(b.dataset.size) === w && w === h);
+function setSizeMode(mode) {
+  state.sizeMode = mode;
+  document.querySelectorAll('#ratios button').forEach((b) => {
+    b.classList.toggle('active', b.dataset.ratio === mode);
   });
+  const custom = mode === 'custom';
+  $('width').disabled = !custom;
+  $('height').disabled = !custom;
+  const hint = $('sizeHint');
+  if (!hint) return;
+  if (mode === 'auto') {
+    const f = state.initFile;
+    hint.innerHTML = f
+      ? '自动：当前会跟随参考图比例（等比装入，不拉伸）'
+      : '自动：图生图跟随参考图比例，文生图读提示词里的 <b>3:4</b> 这类写法，都没有就用模型原生比例';
+  } else if (custom) {
+    hint.innerHTML = '自定义：直接填宽高（能被 8 整除），图生图会<b>等比缩放后留白</b>，不会拉伸变形';
+  } else {
+    hint.innerHTML = `固定 <b>${mode}</b>：按模型原生面积自动选尺寸，图生图等比装入不拉伸`;
+  }
 }
 
 function setFile(file) {
@@ -129,6 +143,16 @@ function setFile(file) {
   state.initFile = file;
   const url = URL.createObjectURL(file);
   $('dropInner').innerHTML = `<img src="${url}" alt="初始图"><div class="hint">${file.name} · 点击可更换</div>`;
+  // 读一下真实宽高，把「自动＝跟随参考图」具体化到界面
+  const probe = new Image();
+  probe.onload = () => {
+    if (state.sizeMode === 'auto' && $('sizeHint')) {
+      $('sizeHint').innerHTML =
+        `自动：将跟随参考图比例 <b>${probe.naturalWidth}×${probe.naturalHeight}</b>` +
+        `（等比装入，不拉伸）`;
+    }
+  };
+  probe.src = url;
 }
 
 function setBadge(text, cls) {
@@ -163,6 +187,7 @@ async function submit() {
   fd.append('model', $('model').value);
   fd.append('precision', $('precision').value);
   fd.append('gear', $('gear').value);
+  fd.append('size', state.sizeMode || 'auto');
   fd.append('width', $('width').value);
   fd.append('height', $('height').value);
   fd.append('steps', $('steps').value);
@@ -429,16 +454,11 @@ document.addEventListener('DOMContentLoaded', () => {
   $('guidance').oninput = scheduleAdvice;
   $('btnRecipe').onclick = applyRecipe;
 
-  document.querySelectorAll('#sizes button').forEach((b) => {
-    b.onclick = () => {
-      const v = b.dataset.size;
-      $('width').value = v;
-      $('height').value = v;
-      markSizePreset();
-    };
+  document.querySelectorAll('#ratios button').forEach((b) => {
+    b.onclick = () => setSizeMode(b.dataset.ratio);
   });
-  $('width').oninput = markSizePreset;
-  $('height').oninput = markSizePreset;
+  $('width').oninput = () => {};
+  $('height').oninput = () => {};
 
   $('drop').onclick = () => $('file').click();
   $('file').onchange = (e) => setFile(e.target.files[0]);

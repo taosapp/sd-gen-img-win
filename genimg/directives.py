@@ -65,9 +65,12 @@ class PromptDirectives:
 
 def _parse_size(value: str):
     m = re.fullmatch(r"\s*(\d{2,4})\s*[x×*]\s*(\d{2,4})\s*", value)
-    if not m:
-        return None
-    return int(m.group(1)), int(m.group(2))
+    if m:
+        return ("wh", int(m.group(1)), int(m.group(2)))
+    m = re.fullmatch(r"\s*(\d{1,2}(?:\.\d+)?)\s*[:：/]\s*(\d{1,2}(?:\.\d+)?)\s*", value)
+    if m:
+        return ("ratio", float(m.group(1)), float(m.group(2)))
+    return None
 
 
 def parse_directives(text: str) -> PromptDirectives:
@@ -90,7 +93,9 @@ def parse_directives(text: str) -> PromptDirectives:
             if canonical == "size":
                 value = _parse_size(value_raw)
                 if value is None:
-                    result.warnings.append(f"尺寸格式无法识别：{value_raw!r}（应形如 512x512），已忽略")
+                    result.warnings.append(
+                        f"尺寸格式无法识别：{value_raw!r}（应形如 512x768 或 3:4），已忽略"
+                    )
                     continue
             elif canonical in _INT_KEYS:
                 value = int(float(value_raw))
@@ -122,8 +127,10 @@ def describe(directives: PromptDirectives) -> str:
         return "（提示词中未内嵌指令）"
 
     def render(key: str, value: object) -> str:
-        if key == "size" and isinstance(value, tuple):
-            return f"size={value[0]}x{value[1]}"
+        if key == "size" and isinstance(value, tuple) and len(value) == 3:
+            if value[0] == "wh":
+                return f"size={value[1]}x{value[2]}"
+            return f"size={value[1]:g}:{value[2]:g}"
         return f"{key}={value}"
 
     parts = [render(k, v) for k, v in directives.values.items()]

@@ -32,6 +32,7 @@ from fastapi.staticfiles import StaticFiles
 
 from genimg.advice import check_request, effective_steps
 from genimg.engine import Engine, GenRequest, is_repo_cached
+from genimg.sizing import resolve as resolve_size
 from genimg.presets import (
     MODEL_PROFILES,
     PRECISION_GEARS,
@@ -326,6 +327,7 @@ def generate(
     model: str = Form("sd-turbo"),
     precision: str = Form("fp16"),
     gear: str = Form(""),
+    size: str = Form("auto"),
     width: int = Form(512),
     height: int = Form(512),
     steps: str = Form(""),
@@ -343,9 +345,12 @@ def generate(
     if mode == "img2img" and image is None:
         raise HTTPException(status_code=400, detail="图生图需要先上传一张图片")
 
-    for name, val in (("width", width), ("height", height)):
-        if not (MIN_SIZE <= val <= MAX_SIZE) or val % 8 != 0:
-            raise HTTPException(status_code=400, detail=f"{name} 需为 {MIN_SIZE}–{MAX_SIZE} 之间且能被 8 整除")
+    size_spec = (size or "auto").strip()
+    custom_wh = size_spec in ("custom", "")
+    if custom_wh:
+        for name, val in (("width", width), ("height", height)):
+            if not (MIN_SIZE <= val <= MAX_SIZE) or val % 8 != 0:
+                raise HTTPException(status_code=400, detail=f"{name} 需为 {MIN_SIZE}–{MAX_SIZE} 之间且能被 8 整除")
     if not (1 <= batch <= MAX_BATCH):
         raise HTTPException(status_code=400, detail=f"一次最多生成 {MAX_BATCH} 张")
     if not (0.0 <= strength <= 1.0):
@@ -369,6 +374,7 @@ def generate(
     os.makedirs(job_dir, exist_ok=True)
 
     init_path = None
+    init_size = None
     if mode == "img2img" and image is not None:
         raw = image.file.read()
         if len(raw) > MAX_UPLOAD_BYTES:
@@ -377,6 +383,7 @@ def generate(
             from PIL import Image
 
             probe = Image.open(io.BytesIO(raw))
+            init_size = probe.size
             probe.verify()
         except Exception:  # noqa: BLE001
             raise HTTPException(status_code=400, detail="上传的文件不是有效图片")
@@ -384,6 +391,17 @@ def generate(
 
         init_path = os.path.join(job_dir, "init.png")
         _Image.open(io.BytesIO(raw)).convert("RGB").save(init_path)
+
+    # 尺寸：自定义像素 > 显式比例 > 提示词里的画幅 > 参考图 > 模型原生
+    decision = resolve_size(
+        width=width if custom_wh else None,
+        height=height if custom_wh else None,
+        spec=None if size_spec == "auto" or custom_wh else size_spec,
+        prompt=prompt,
+        model_key=profile.key,
+        init_size=init_size,
+        model_native=profile.native_size,
+    )
 
     warning = ""
     if not is_repo_cached(profile.repo, PROJECT):
@@ -398,8 +416,11 @@ def generate(
             "model": profile.key,
             "precision": prec.key,
             "gear": q.key,
-            "width": width,
-            "height": height,
+            "width": decision.width,
+            "height": decision.height,
+            "size_source": decision.source,
+            "size_note": decision.note,
+            "size_ratio": decision.ratio,
             "steps": int(steps) if str(steps).strip() else None,
             "guidance": float(guidance) if str(guidance).strip() else None,
             "seed": int(seed) if str(seed).strip() else None,

@@ -74,16 +74,22 @@
     </div>
 
     <label class="field">
-      <span>尺寸</span>
-      <div class="size-row" id="sizes">
-        <button data-size="512" class="active">512 × 512</button>
-        <button data-size="640">640 × 640</button>
-        <button data-size="768">768 × 768</button>
-        <button data-size="1024">1024 × 1024</button>
+      <span>画幅</span>
+      <div class="size-row" id="ratios">
+        <button data-ratio="auto" class="active">自动</button>
+        <button data-ratio="1:1">1:1</button>
+        <button data-ratio="3:4">3:4</button>
+        <button data-ratio="2:3">2:3</button>
+        <button data-ratio="4:3">4:3</button>
+        <button data-ratio="16:9">16:9</button>
+        <button data-ratio="custom">自定义</button>
       </div>
       <div class="grid2">
-        <input id="width" type="number" value="512" min="256" max="1536" step="8">
-        <input id="height" type="number" value="512" min="256" max="1536" step="8">
+        <input id="width" type="number" value="512" min="256" max="1536" step="8" disabled>
+        <input id="height" type="number" value="512" min="256" max="1536" step="8" disabled>
+      </div>
+      <div class="hintline" id="sizeHint">
+        自动：图生图跟随参考图比例，文生图读提示词里的 <b>3:4</b> 这类写法，都没有就用模型原生比例
       </div>
     </label>
 

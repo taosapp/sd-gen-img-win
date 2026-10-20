@@ -16,6 +16,18 @@ import re
 
 _CJK_RE = re.compile(r"[\u4e00-\u9fff]")
 
+# CLIP 文本编码器单次最多 77 个 token（SDXL 的两个编码器各自也是 77）
+CLIP_TOKEN_LIMIT = 77
+
+
+def estimate_tokens(text: str) -> int:
+    """粗略估算 token 数：中文约 1 字 1 token，英文约 4 字符 1 token。"""
+    if not text:
+        return 0
+    cjk = len(_CJK_RE.findall(text))
+    latin = len(text) - cjk
+    return int(cjk + latin / 4.0)
+
 
 def effective_steps(steps: int, strength: float) -> int:
     """diffusers 图生图实际执行的采样步数。"""
@@ -74,6 +86,15 @@ def check_request(
             "提示词含中文：SD 系列（sd15 / sdxl / sd-turbo）的文本编码器以英文语料为主，"
             "中文提示词的效果明显弱于英文。建议改成英文，例如「水彩风格」→ "
             "watercolor painting style, soft washes, paper texture, rich details。"
+        )
+
+    n_tok = estimate_tokens(prompt)
+    if n_tok > CLIP_TOKEN_LIMIT:
+        kept_pct = int(CLIP_TOKEN_LIMIT / n_tok * 100)
+        tips.append(
+            f"提示词约 {n_tok} 个 token，而 CLIP 单次只吃 {CLIP_TOKEN_LIMIT} 个："
+            f"约 {100 - kept_pct}% 的内容会被静默截断（后面的“AVOID/风格细节”这类尾巴几乎全丢）。"
+            f"对策：把最关键的 10–15 个词放最前面；长描述拆成多次生成再挑。"
         )
 
     return tips
