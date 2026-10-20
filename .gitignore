@@ -21,6 +21,8 @@ results/ratio_timing/
 results/poster_two_pass_s070/
 results/poster_two_pass/*/_bottom_src.png
 results/poster_two_pass/*/sdxl_*.png
+results/**/_bottom_src.png
+results/poster_*/*/sdxl_*.png
 
 # ---- Python ----
 __pycache__/

@@ -30,20 +30,30 @@ def main() -> int:
     ap.add_argument("--precision", default="fp16")
     ap.add_argument("--gear", default="balanced")
     ap.add_argument("--size", default="3:4", help="画幅比例或 WxH，默认 3:4")
-    ap.add_argument("--strength", type=float, default=0.72,
+    ap.add_argument("--strength", type=float, default=0.82,
                     help="下半插画的改动强度：0.70 保主体可辨识，0.85 完全抽象")
     ap.add_argument("--seed", type=int, default=None)
-    ap.add_argument("--style", default="", help="覆盖自动抽取的画风提示词")
-    ap.add_argument("--art-scale", type=float, default=0.62,
-                    help="插画在下半占据的宽度比例；1.0 = 满幅（不留白），0.62 = 默认留白版式")
+    ap.add_argument("--style", default="", help="覆盖画风提示词")
+    ap.add_argument("--preset", choices=["watercolor", "paper"], default="watercolor",
+                    help="watercolor=内置水彩描述；paper=从长提示词自动抽取手绘描述")
+    ap.add_argument("--art-scale", type=float, default=0.52,
+                    help="插画宽度占画布比例，0.52 ≈ 参考图的留白比例")
+    ap.add_argument("--title", default="", help="主标题（大写衬线字距排版）")
+    ap.add_argument("--subtitle", default="", help="副标题")
+    ap.add_argument("--year", default="", help="年份")
     ap.add_argument("--out", default=os.path.join(PROJECT, "results", "poster_two_pass"))
     args = ap.parse_args()
 
     text = open(args.prompt_file, encoding="utf-8").read()
     style, negative = condense_prompt(text)
     print(f"提示词 {len(text)} 字符")
-    print(f"自动抽取的画风（{len(style.split())} 词）：{style}")
-    print(f"自动抽取的负向（{len(negative.split(','))} 项）：{negative[:120]}...")
+    if args.preset == "watercolor" and not args.style:
+        from genimg.poster import WATERCOLOR_STYLE
+
+        print(f"画风（preset=watercolor）：{WATERCOLOR_STYLE}")
+    else:
+        print(f"自动抽取的画风（{len(style.split())} 词）：{style}")
+        print(f"自动抽取的负向（{len(negative.split(','))} 项）：{negative[:100]}...")
 
     model = resolve_model(args.model)
     precision = resolve_precision(args.precision)
@@ -70,7 +80,11 @@ def main() -> int:
                 strength=args.strength,
                 seed=args.seed,
                 style_override=args.style,
+                preset=args.preset,
                 art_scale=args.art_scale,
+                title=args.title,
+                subtitle=args.subtitle,
+                year=args.year,
                 out_dir=out_dir,
             )
         except Exception as exc:  # noqa: BLE001
