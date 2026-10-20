@@ -11,6 +11,7 @@ from typing import Any
 
 from .advice import check_request, effective_steps
 from .sizing import fit_image
+from .style_map import expand_styles
 from .zh_prompt import translate
 from .presets import (
     LORA_REGISTRY,
@@ -68,6 +69,7 @@ class GenRequest:
     out_dir: str | None = None  # 自定义输出目录（Web 界面按任务号归档时用）
     extra_call_kwargs: dict = field(default_factory=dict)  # 透传给 diffusers 管线的额外参数
     translate: str = "dict"  # 中文提示词处理：dict（离线词典） | off
+    style_expand: str = "auto"  # 风格语义展开：auto（抽象风格名→具体视觉特征） | off
     size_source: str = ""  # 尺寸来源（cli / 提示词「3:4」 / 参考图 / default），仅用于回显
     size_note: str = ""  # 尺寸与参考图处理的说明（是否缩放、是否留白）
     def size_str(self) -> str:
@@ -461,6 +463,21 @@ class Engine:
         if self.verbose and tr.unknown:
             print(f"[prompt] 词典未覆盖的片段已原样保留：{'、'.join(tr.unknown[:5])}")
 
+        # 风格语义展开：把"American comic style"这类 CLIP 听不懂的抽象名，
+        # 换成具体视觉特征（粗黑描边/平涂/网点）。实测这是唯一有效的办法。
+        style_expanded: list = []
+        if req.style_expand != "off":
+            ex = expand_styles(prompt_eff)
+            if ex.changed:
+                prompt_eff = ex.prompt
+                style_expanded = [list(x) for x in ex.applied]
+                if ex.negatives:
+                    extra = ", ".join(ex.negatives)
+                    negative_eff = f"{negative_eff}, {extra}" if negative_eff else extra
+                if self.verbose:
+                    for label, expansion in ex.applied:
+                        print(f"[prompt] 风格展开（{label}）：{expansion}")
+
         # 生成前的"体检"：提前把踩坑点在命令行里说清楚（图生图步数换算 / CFG / 中文提示词）
         tips = check_request(
             mode=req.mode,
@@ -659,6 +676,7 @@ class Engine:
             "prompt": prompt_eff,
             "prompt_original": req.prompt,
             "prompt_translated": tr.changed,
+            "style_expanded": style_expanded,
             "translation": {
                 "method": tr.method,
                 "replaced": [list(x) for x in tr.replaced],

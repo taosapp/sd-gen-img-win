@@ -487,9 +487,26 @@ def advice(
     tips = check_request(
         mode=mode, prompt=prompt, steps=st, strength=strength, guidance=gd, model_key=profile.key
     )
+
+    # 风格语义展开：提前告诉用户"你写的风格名会被换成什么"，而不是生成完才知道
+    expanded, expanded_applied = prompt, []
+    try:
+        from genimg.style_map import expand_styles
+
+        ex = expand_styles(prompt)
+        if ex.changed:
+            expanded, expanded_applied = ex.prompt, [[a, b] for a, b in ex.applied]
+            tips = tips + [
+                f"风格已自动展开（{'、'.join(a[0] for a in ex.applied)}）：实际送入模型的是「{ex.prompt}」"
+            ]
+    except Exception:  # noqa: BLE001
+        pass
+
     return {
         "advice": tips,
         "effective_steps": effective_steps(st, strength) if mode == "img2img" else st,
+        "prompt_effective": expanded,
+        "style_expanded": expanded_applied,
     }
 
 

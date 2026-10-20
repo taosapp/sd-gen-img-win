@@ -513,6 +513,56 @@ UNet + CLIP：77 token 上限、不会写字、对"画成水彩"只能做风格�
 工具会提示：检测到 `American comic style` 这类弱锚点写法时，`/api/advice` 与命令行会直接
 给出替换建议（见 `genimg/advice.py` 的 `WEAK_STYLES`）。
 
+### 6.11 给旧模型补一层"语义翻译"：风格展开表
+
+CLIP 听不懂 `American comic style`（实测：加负向、换语序都无效，见 §6.10），
+但它听得懂 `bold black ink outlines, flat colors, halftone dots`。
+于是加一层**风格展开**：抽象风格名 → 具体视觉特征。
+
+**两层各自的职责**
+
+| 层 | 输入 | 输出 | 模块 |
+|---|---|---|---|
+| 词表翻译 | 中文词（水彩、细节丰富） | 英文对应词 | `genimg/zh_prompt.py`（116 条） |
+| **风格展开** | 抽象风格名（American comic / 吉卜力 / 3D 渲染） | **线条·配色·材质·光**的具体描述 + 建议负向 | `genimg/style_map.py`（14 类） |
+
+**实测对比**（sd15 / balanced / 512 / seed 20261020，同一句提示词）
+
+| 模式 | 结果 |
+|---|---|
+| `--style-expand off` | 照片（风格被无视） |
+| `--style-expand auto`（默认） | **美式漫画：粗黑描边 + 平涂 + 网点** |
+
+**覆盖的风格（14 类）**
+
+美式漫画、日式动漫、水彩、油画、铅笔素描、像素画、3D 渲染、赛博朋克、蒸汽朋克、
+国风水墨、扁平插画、波普、吉卜力、皮克斯。
+
+**触发规则（重要）**
+
+- 只在**识别到风格名且没有配套细节**时展开。
+  例如已经写了 `bold black ink outlines` 就不再追加，避免把提示词撑过 77 token。
+- 展开结果**追加到句末**，保留用户原本的语序与主体描述。
+- 部分风格会**同时补负向**（如美式漫画补 `photo, photorealistic, soft shading`）。
+
+**开关与透明性**
+
+```powershell
+python genimg.py "..., American comic style." --style-expand off   # 关闭
+```
+
+默认 `auto`。开启时，实际送入模型的提示词会：
+
+- 在命令行打印 `[prompt] 风格展开（美式漫画 / American comic）：…`
+- 写进 PNG 元数据（`prompt` 为实际值，`prompt_original` 为原文）
+- 在网页提示区显示"风格已自动展开，实际送入模型的是「…」"（`/api/advice` 的
+  `prompt_effective` / `style_expanded` 字段）
+
+**适用边界**
+
+这是给**旧模型**补语义的权宜层：表里没有的风格名照样会被无视（此时 §6.10 的提示仍会触发）。
+如果换成 Qwen-Image 这类语义模型，这一层可以直接关掉——它本来就不需要。
+
 ## 7. 实测数据（512×512）
 
 ### 7.1 全量挡位矩阵

@@ -82,6 +82,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="中文提示词处理：dict（默认，离线词典） | off（不翻译）",
     )
+    p.add_argument(
+        "--style-expand",
+        choices=["auto", "off"],
+        default="auto",
+        help="抽象风格名自动展开成具体视觉特征（如 American comic → ink outlines/flat colors/halftone dots）；off 关闭",
+    )
     return p
 
 
@@ -187,6 +193,7 @@ def resolve_request(args, project_root: str):
         placement=str(placement),
         out_dir=args.out,
         translate=args.translate or "dict",
+        style_expand=args.style_expand,
     )
     return req, profile, precision, quality, parsed, source, warnings
 
