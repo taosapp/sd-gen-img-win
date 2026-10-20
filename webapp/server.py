@@ -271,6 +271,9 @@ def catalog() -> dict:
     hw = probe_hardware()
     models = []
     for key, prof in MODEL_PROFILES.items():
+        cached = is_repo_cached(prof.repo, PROJECT)
+        if not getattr(prof, "offered", True) and not cached:
+            continue  # 不提供下载入口的模型（如 sdxl-turbo）不在界面列出
         models.append(
             {
                 "key": key,

@@ -65,7 +65,7 @@ micro-conditioning 输入。直接在 512×512 出图时，diffusers 默认把�
 | `sd-turbo` | `stabilityai/sd-turbo` | 512 | **512 极速**：1–4 步出图 | 3.3GB |
 | `sd15` | `stable-diffusion-v1-5/stable-diffusion-v1-5` | 512 | **512 通用**：生态最大，图生图稳 | 6.0GB |
 | `sdxl` | `stabilityai/stable-diffusion-xl-base-1.0` | 1024 | **高质量**：细节与语义最强 | 6.5GB |
-| `sdxl-turbo` | `stabilityai/sdxl-turbo` | 512 | SDXL 蒸馏版（可选，未默认下载）| 6.9GB |
+| `sdxl-turbo` | `stabilityai/sdxl-turbo` | 512 | SDXL 蒸馏版（**不提供下载入口**，见 §6.4 注）| 6.9GB |
 | — | `ByteDance/SDXL-Lightning` | — | SDXL 的 4/8 步加速 LoRA | 0.7GB |
 
 ### 3.4 为什么不用本机已有的 Qwen-Image
@@ -681,7 +681,7 @@ sd-gen-img-win/
 * **SDXL + fp32** 权重 13.9GB 超出 12GB 显存，会走 CPU offload，单张耗时远超 30 秒预算 —— 这是显存硬约束，不是配置问题。
 * **fp8 挡位**在本机不可用（sm_86 无 fp8 张量核），脚本会明确拒绝而非假装支持。
 * `turbo` / `lightning` 挡位关闭了 CFG，因此**负向提示词不生效**（脚本会按 CFG>1 才传负向提示词）。
-* 模型仓库 `sdxl-turbo` 默认未下载，需要时用 `python tools\fetch_models.py --with-sdxl-turbo`。
+* 模型仓库 `sdxl-turbo` **不提供下载入口**：能力与「SDXL + Lightning LoRA」重叠（后者 0.73GB、4 步 0.82s），且许可为非商用（sai-nc-community）。确需使用请自行放置权重到 `models/hub`，引擎仍识别 `--model sdxl-turbo`。
 * 权重下载受网络影响：huggingface.co 需代理，hf-mirror.com 更快但偶有限流（429），下载脚本已带重试与续传。
 * **模型已缓存时是完全离线加载的**（`local_files_only=True`）：即使 hf-mirror 抽风（实测遇到过 403）也不影响出图；
   反过来，模型未缓存且网络不可用时，会直接提示“请先运行 tools\fetch_models.py”，而不是丢一堆堆栈。

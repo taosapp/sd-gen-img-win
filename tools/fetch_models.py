@@ -6,7 +6,6 @@
 用法（在 genimg 环境里执行）：
     python tools\\fetch_models.py                 # 下载默认组合
     python tools\\fetch_models.py --only sdxl     # 只下某一个
-    python tools\\fetch_models.py --with-sdxl-turbo
 """
 
 from __future__ import annotations
@@ -69,12 +68,6 @@ DOWNLOADS: dict[str, dict] = {
         "about": "SD-Turbo：512 原生少步模型（约 2.2GB）",
         "size_gb": 2.2,
     },
-    "sdxl-turbo": {
-        "repo": "stabilityai/sdxl-turbo",
-        "patterns": unet_repo_patterns(True),
-        "about": "SDXL-Turbo：SDXL 蒸馏版（约 6.9GB，可选）",
-        "size_gb": 6.9,
-    },
     "lightning": {
         "repo": "ByteDance/SDXL-Lightning",
         "patterns": ["sdxl_lightning_4step_lora.safetensors", "sdxl_lightning_8step_lora.safetensors"],
@@ -89,7 +82,6 @@ DEFAULT_SET = ["sd-turbo", "sdxl", "sd15", "lightning"]
 def main() -> int:
     ap = argparse.ArgumentParser(description="下载所需模型权重")
     ap.add_argument("--only", action="append", choices=sorted(DOWNLOADS), help="只下载指定项，可重复")
-    ap.add_argument("--with-sdxl-turbo", action="store_true", help="连带下载 SDXL-Turbo")
     ap.add_argument("--hf-source", choices=["huggingface", "mirror"], default="mirror")
     ap.add_argument("--proxy", default=None)
     ap.add_argument("--retries", type=int, default=4, help="单项失败后的重试次数（会自动续传）")
@@ -97,8 +89,6 @@ def main() -> int:
     args = ap.parse_args()
 
     targets = args.only or list(DEFAULT_SET)
-    if args.with_sdxl_turbo and "sdxl-turbo" not in targets:
-        targets.append("sdxl-turbo")
 
     # 单个连接卡住时尽快失败并重试，而不是无限等下去
     os.environ.setdefault("HF_HUB_DOWNLOAD_TIMEOUT", "20")

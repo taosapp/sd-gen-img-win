@@ -171,6 +171,7 @@ class ModelProfile:
     note: str
     variant: str | None = None  # 默认下载的仓库变体（fp16 / None=fp32）
     aliases: tuple[str, ...] = ()
+    offered: bool = True  # False = 不提供下载入口（界面不列出，除非本地已有权重）
     extra: dict = field(default_factory=dict)
 
 
@@ -223,9 +224,10 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
         params_billion=3.4,
         supports_negative=False,
         default_gear="turbo",
-        note="SDXL 的对抗蒸馏版，1~4 步出图，画质高于 SD-Turbo；同样不支持 CFG。",
+        note="SDXL 的对抗蒸馏版，1~4 步出图，画质高于 SD-Turbo；同样不支持 CFG。本项不提供下载入口（SDXL + Lightning LoRA 已覆盖同类需求），需自行放置权重。",
         variant="fp16",
         aliases=("xlturbo",),
+        offered=False,
     ),
 }
 
