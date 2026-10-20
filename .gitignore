@@ -18,6 +18,9 @@ results/zh_dict_final/
 results/poster_ratio_exp/*/
 results/fp16fix_*/
 results/ratio_timing/
+results/poster_two_pass_s070/
+results/poster_two_pass/*/_bottom_src.png
+results/poster_two_pass/*/sdxl_*.png
 
 # ---- Python ----
 __pycache__/
