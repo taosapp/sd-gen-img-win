@@ -51,7 +51,7 @@ micro-conditioning 输入。直接在 512×512 出图时，diffusers 默认把�
 
 | 配置 | 512×512 出图表现 |
 |---|---|
-| SDXL + 默认条件化 | 出现"三格贴纸"式构图崩坏（见 `results/lowres_exp/A_*.png`） |
+| SDXL + 默认条件化 | 出现"三格贴纸"式构图崩坏（见 `results/lowres_exp/A_sdxl512_default_cond/`） |
 | SDXL + 原生分辨率条件化 (1024) | 见 §7 实测（脚本 `tools/exp_lowres.py`） |
 | SD1.5（原生 512） | 构图正常 |
 | SD-Turbo（原生 512） | 构图正常，且最快 |
