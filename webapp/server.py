@@ -242,9 +242,25 @@ def _worker() -> None:
                 job.error = res.error
             else:
                 job.status = "done"
+                # 故事板：同一批次共用一个目录，文件名加 shotNN_ 前缀，避免重名与串位
+                shot = (job.params.get("storyboard") or {}).get("shot")
+                outputs = list(res.meta.get("outputs", []))
+                if shot:
+                    renamed = []
+                    for p in outputs:
+                        folder, name = os.path.split(p)
+                        target = os.path.join(folder, f"shot{int(shot):02d}_{name}")
+                        try:
+                            if os.path.exists(p):
+                                os.replace(p, target)
+                        except OSError:
+                            target = p
+                        renamed.append(target)
+                    outputs = renamed
+                    res.meta["outputs"] = outputs
                 job.meta = res.meta
                 # meta.outputs 是相对项目根的路径（形如 outputs/web/<id>/x.png），转成 URL
-                job.images = ["/" + p.replace("\\", "/") for p in res.meta.get("outputs", [])]
+                job.images = ["/" + p.replace("\\", "/") for p in outputs]
                 job.step_now = len(res.meta.get("step_seconds", [])) or job.step_now
                 job.step_total = job.step_now or job.step_total
         except Exception as exc:  # noqa: BLE001
@@ -489,12 +505,14 @@ def storyboard(
     decision = resolve_size(spec=ratio, model_key=profile.key, model_native=profile.native_size)
     base_seed = int(seed) if str(seed).strip().isdigit() else None
     batch_id = uuid.uuid4().hex[:10]
+    # 整个批次共用一个目录：outputs/web/batch_<id>/，所有镜头图都在里面
+    batch_dir = os.path.join(WEB_OUTPUT, f"batch_{batch_id}")
+    os.makedirs(batch_dir, exist_ok=True)
     job_ids: list[str] = []
 
     for idx, prompt in enumerate(items):
         job_id = uuid.uuid4().hex[:12]
-        job_dir = os.path.join(WEB_OUTPUT, job_id)
-        os.makedirs(job_dir, exist_ok=True)
+        job_dir = batch_dir
         job = Job(
             id=job_id,
             mode="txt2img",

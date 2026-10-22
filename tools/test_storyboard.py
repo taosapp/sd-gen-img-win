@@ -1,7 +1,9 @@
-"""验证故事板：提交 10 条提示词，轮询到全部完成，检查张数与尺寸。"""
+"""验证故事板：指定张数与画幅，检查是否同一文件夹、文件名是否带 shotNN 前缀。"""
 
+import glob
 import io
 import json
+import os
 import sys
 import time
 import urllib.error
@@ -9,14 +11,17 @@ import urllib.request
 import uuid
 
 BASE = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:7866"
+COUNT = int(sys.argv[2]) if len(sys.argv) > 2 else 3
+RATIO = sys.argv[3] if len(sys.argv) > 3 else "16:9"
+EXPECT = {"9:16": (768, 1344), "16:9": (1344, 768)}[RATIO]
 
-SHOTS = [f"shot {i}: a lone traveler walking through an ancient street, cinematic" for i in range(1, 11)]
+SHOTS = [f"shot {i}: a traveler walking through an ancient street, cinematic" for i in range(1, COUNT + 1)]
 
 
-def post_storyboard(prompts, ratio="9:16"):
+def post(prompts, ratio):
     boundary = uuid.uuid4().hex
     body = io.BytesIO()
-    for k, v in {"prompts": json.dumps(prompts, ensure_ascii=False), "ratio": ratio}.items():
+    for k, v in {"prompts": json.dumps(prompts), "ratio": ratio}.items():
         body.write(f"--{boundary}\r\n".encode())
         body.write(f'Content-Disposition: form-data; name="{k}"\r\n\r\n'.encode())
         body.write(str(v).encode("utf-8"))
@@ -36,34 +41,37 @@ def post_storyboard(prompts, ratio="9:16"):
 
 
 t0 = time.time()
-meta = post_storyboard(SHOTS)
-print(f"批次 {meta['batch_id']}  画幅 {meta['width']}x{meta['height']}  共 {meta['total']} 张")
+meta = post(SHOTS, RATIO)
+print(f"批次 {meta['batch_id']}  画幅 {meta['width']}x{meta['height']}  提交 {meta['total']} 张")
 
-done = 0
 while True:
     with urllib.request.urlopen(f"{BASE}/api/storyboard/{meta['batch_id']}", timeout=15) as r:
         st = json.loads(r.read().decode())
-    finished = st["done"] + st["failed"]
-    if finished != done:
-        done = finished
-        print(f"  进度 {done}/{st['total']}  失败 {st['failed']}  已用 {time.time() - t0:.1f}s", flush=True)
-    if finished >= st["total"]:
+    if st["done"] + st["failed"] >= st["total"]:
         break
     time.sleep(1.0)
 
 urls = [i["url"] for i in st["items"] if i["url"]]
-print(f"\n完成 {st['done']}/{st['total']}，失败 {st['failed']}，总耗时 {time.time() - t0:.1f}s")
-print("前 3 个地址:", urls[:3])
+print(f"完成 {st['done']}/{st['total']}，失败 {st['failed']}，耗时 {time.time() - t0:.1f}s")
 
-# 校验尺寸
+root = r"D:\ai\gen-img-agent"
+paths = [os.path.join(root, u.lstrip("/").replace("/", os.sep)) for u in urls]
+folders = {os.path.dirname(p) for p in paths}
+names = [os.path.basename(p) for p in paths]
+
 from PIL import Image  # noqa: E402
 
-import os  # noqa: E402
+sizes = {Image.open(p).size for p in paths if os.path.exists(p)}
 
-sizes = set()
-for u in urls:
-    p = os.path.join(r"D:\ai\gen-img-agent", u.lstrip("/").replace("/", os.sep))
-    if os.path.exists(p):
-        sizes.add(Image.open(p).size)
-print("出图尺寸:", sizes)
-sys.exit(0 if st["done"] == st["total"] and sizes == {(meta["width"], meta["height"])} else 1)
+print("图片所在文件夹:", [os.path.relpath(f, root) for f in folders])
+print("文件名:", names)
+print("尺寸:", sizes)
+
+ok = (
+    len(paths) == COUNT
+    and len(folders) == 1
+    and sizes == {EXPECT}
+    and all(n.startswith("shot") for n in names)
+)
+print("结论：" + ("符合预期（同一文件夹 + shotNN 前缀 + 尺寸一致）" if ok else "不符合预期"))
+sys.exit(0 if ok else 1)

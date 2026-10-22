@@ -215,6 +215,7 @@ button.ghost {
 }
 
 button.ghost:hover { color: var(--accent); border-color: var(--accent); }
+button.ghost:disabled { color: #a9b1bd; border-color: var(--line); background: var(--panel-2); cursor: not-allowed; }
 
 /* 状态与结果 */
 .status {

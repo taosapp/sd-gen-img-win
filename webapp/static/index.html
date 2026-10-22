@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>genimg · 本机生图</title>
-<link rel="stylesheet" href="/static/style.css?v=3">
+<link rel="stylesheet" href="/static/style.css?v=4">
 </head>
 <body>
 
@@ -135,9 +135,11 @@
         </div>
       </label>
       <div class="hintline">
-        一次连续生成；默认 <b>sdxl / fp16 / lightning</b>，首张含权重加载约 30–40 秒，之后每张约 6–7 秒。空的镜头会跳过。
+        一次连续生成；默认 <b>sdxl / fp16 / lightning</b>，首张含权重加载约 30–40 秒，之后每张约 6–7 秒。
+        <b>默认 3 个镜头，最多 10 个</b>；只填几个就只生成几张。
       </div>
       <div class="sb-list" id="sbInputs"></div>
+      <button class="ghost" id="sbAdd" style="margin-top:8px;width:100%">＋ 添加镜头</button>
       <button class="primary" id="sbGo" style="margin-top:12px">连续生成</button>
       <div class="muted" id="sbNote" style="margin-top:8px"></div>
     </div>
@@ -161,6 +163,6 @@
 
 </main>
 
-<script src="/static/app.js?v=3"></script>
+<script src="/static/app.js?v=4"></script>
 </body>
 </html>

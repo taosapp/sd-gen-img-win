@@ -117,24 +117,44 @@ function setMode(mode) {
 
 /* ---------------------------------------------------------------- 故事板 */
 const SB_COUNT = 10;
+const SB_DEFAULT = 3;
+
+function sbRows() {
+  return [...document.querySelectorAll('#sbInputs .sb-item')];
+}
+
+function updateSbAdd() {
+  const btn = $('sbAdd');
+  if (!btn) return;
+  const n = sbRows().length;
+  const full = n >= SB_COUNT;
+  btn.disabled = full;
+  btn.textContent = full ? `已达上限 ${SB_COUNT} 个` : `＋ 添加镜头（${n}/${SB_COUNT}）`;
+}
+
+function appendSbRow() {
+  const box = $('sbInputs');
+  if (!box || sbRows().length >= SB_COUNT) return;
+  const n = sbRows().length + 1;
+  const row = document.createElement('div');
+  row.className = 'sb-item';
+  const idx = document.createElement('div');
+  idx.className = 'idx';
+  idx.textContent = String(n);
+  const ta = document.createElement('textarea');
+  ta.rows = 2;
+  ta.placeholder = `镜头 ${n} 的提示词（英文）`;
+  row.appendChild(idx);
+  row.appendChild(ta);
+  box.appendChild(row);
+  updateSbAdd();
+}
 
 function buildSbInputs() {
   const box = $('sbInputs');
   if (!box) return;
   box.innerHTML = '';
-  for (let i = 1; i <= SB_COUNT; i += 1) {
-    const row = document.createElement('div');
-    row.className = 'sb-item';
-    const idx = document.createElement('div');
-    idx.className = 'idx';
-    idx.textContent = String(i);
-    const ta = document.createElement('textarea');
-    ta.rows = 2;
-    ta.placeholder = `镜头 ${i} 的提示词（英文）`;
-    row.appendChild(idx);
-    row.appendChild(ta);
-    box.appendChild(row);
-  }
+  for (let i = 0; i < SB_DEFAULT; i += 1) appendSbRow();
 }
 
 function setSbRatio(ratio) {
@@ -586,6 +606,7 @@ document.addEventListener('DOMContentLoaded', () => {
     b.onclick = () => setSbRatio(b.dataset.ratio);
   });
   $('sbGo').onclick = runStoryboard;
+  $('sbAdd').onclick = appendSbRow;
   setSbRatio(state.sbRatio);
 
   document.querySelectorAll('#ratios button').forEach((b) => {
