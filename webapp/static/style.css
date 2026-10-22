@@ -264,16 +264,24 @@ button.ghost:hover { color: var(--accent); border-color: var(--accent); }
 .kv b { color: var(--text); font-variant-numeric: tabular-nums; font-weight: 600; }
 
 .results {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
   gap: 12px;
   margin-top: 4px;
+  align-items: flex-start;
+  padding-bottom: 4px;
 }
 
-.results figure { margin: 0; }
+.results figure { margin: 0; flex: 0 0 auto; max-width: 100%; }
 
 .results img {
-  width: 100%;
+  /* 不拉伸：不放大、不限高到图看不清；超宽时横向滚动，不挤占竖向空间 */
+  width: auto;
+  height: auto;
+  max-width: 400px;
+  max-height: 400px;
+  object-fit: contain;
   border-radius: 10px;
   border: 1px solid var(--line);
   display: block;
