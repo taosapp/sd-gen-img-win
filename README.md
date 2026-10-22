@@ -615,6 +615,40 @@ python genimg.py "..., American comic style." --style-expand off   # 关闭
 屏蔽方式是给 `diffusers.models.modeling_utils`、`diffusers.loaders.*` 这些**具体 logger**
 挂过滤器，按消息关键字精确匹配；没有动全局日志级别，所以真正的异常警告照样会打印出来。
 
+### 6.14 「Chinese」为什么总出日系脸（实测 + 纠正配方）
+
+**现象**：`a beautiful Chinese girl, portrait` 在 SDXL 上出来的是大眼、小脸、无瑕皮肤的
+"少女偶像"，观感偏日韩。
+
+**原因**：不是"中国"这个词没被理解，而是 **CLIP 对"东亚美女"的视觉先验被少女偶像占据了**。
+训练数据里东亚人像的密度远低于日系插画/偶像写真，所以 `Chinese + 人像` 只会把模型推向
+那个最熟悉的解。**加汉服、加庭院、加国画背景只能改"风格"，改不了"脸"**（实测：四组都穿上了汉服，
+脸仍然是偶像脸）。
+
+**实测对照**（SDXL / fp16 / balanced / 768×1024 / 同一种子）
+
+| 写法 | 结果 |
+|---|---|
+| `a Chinese woman in traditional clothing, portrait` | 汉服 + **偶像脸** |
+| + 汉服/唐制/庭院/国画 | 服装对了，**脸没变** |
+| + 负向 `anime, manga, japanese, cartoon` | 脸几乎没变（说明不是"画风"问题） |
+| **`a 45 year old Chinese woman, documentary photograph, natural skin texture, minimal makeup`** | **真实中年亚洲面孔** ✅ |
+| 上一行 + 负向 `k-pop idol, korean beauty standard, plastic surgery, big eyes, slim jaw, airbrushed skin` | 皮肤纹理更真实，偶像感基本消失 ✅ |
+
+**配方（三步，按有效性排序）**
+
+1. **给年龄** —— 最有效的一刀。`45 year old` 直接把模型踢出"少女"先验；
+2. **给媒介** —— `documentary photograph, natural skin texture, minimal makeup, film grain`；
+3. **压负向** —— `k-pop idol, korean beauty standard, anime, plastic surgery, big eyes, slim jaw, airbrushed skin, beauty filter`。
+
+工具会在检测到「Chinese + 人像」且没写年龄/纪实约束时自动提示这三步（`/api/advice`、命令行）。
+
+**什么情况下真无解**
+
+- 要**具体某个人**的脸 → 必须用 img2img 以真照片为参考，或挂对应 LoRA；
+- 要**整体中式审美**（不是写实照）→ 换中文原生模型（Qwen-Image 一类），它没有这层日系先验；
+- 只用 `Chinese` 一个词硬刚 → 无论加多少形容词，都只是在同一个先验里打转。
+
 ## 7. 实测数据（512×512）
 
 ### 7.1 全量挡位矩阵

@@ -35,6 +35,30 @@ WEAK_STYLES = [
 ]
 
 
+_CN_RE = re.compile(r"\bchinese\b|中国人|中式|华裔|亚洲人像", re.IGNORECASE)
+_PORTRAIT_RE = re.compile(r"\b(girl|woman|man|portrait|face|headshot)\b|人像|女孩|女人|男人|肖像", re.IGNORECASE)
+# 已经写了这些的，就不再啰嗝
+_AGE_OR_PHOTO_RE = re.compile(
+    r"\b\d{2}\s*(?:year|yr|years\s+old)\b|documentary|film grain|natural skin|skin texture|纪实|街拍",
+    re.IGNORECASE,
+)
+
+
+def ethnicity_tips(prompt: str, negative_prompt: str = "") -> list[str]:
+    """「Chinese + 人像」会被 SDXL 的少女偶像先验带跑，给出实测有效的纠正写法。"""
+    text = prompt or ""
+    if not (_CN_RE.search(text) and _PORTRAIT_RE.search(text)):
+        return []
+    if _AGE_OR_PHOTO_RE.search(text) or "idol" in (negative_prompt or "").lower():
+        return []
+    return [
+        "「Chinese + 人像」在 SDXL 里有一个很强的「少女偶像」先验（大眼 / 小脸 / 无瑕皮肤），"
+        "看起来就会偏日韩。实测有效的三步：① 加年龄（如 45 year old）——最有效；"
+        "② 加纪实约束（documentary photograph, natural skin texture, minimal makeup）；"
+        "③ 负向压偶像审美（k-pop idol, korean beauty standard, anime, plastic surgery, big eyes, slim jaw, airbrushed skin）。"
+    ]
+
+
 def style_tips(prompt: str) -> list[str]:
     """风格名太模糊时给出实测有效的替代写法。"""
     text = prompt or ""
@@ -127,5 +151,6 @@ def check_request(
         )
 
     tips.extend(style_tips(prompt))
+    tips.extend(ethnicity_tips(prompt, negative_prompt))
 
     return tips
