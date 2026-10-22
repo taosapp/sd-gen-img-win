@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>genimg · 本机生图</title>
-<link rel="stylesheet" href="/static/style.css">
+<link rel="stylesheet" href="/static/style.css?v=3">
 </head>
 <body>
 
@@ -21,7 +21,10 @@
     <div class="tabs" id="tabs">
       <button data-mode="txt2img" class="active">文生图</button>
       <button data-mode="img2img">图生图（上传图片）</button>
+      <button data-mode="storyboard">故事板</button>
     </div>
+
+    <div id="normalPanel">
 
     <input type="file" id="file" accept="image/*" hidden>
     <div class="drop" id="drop" hidden>
@@ -120,6 +123,24 @@
     <button class="primary" id="go">生成</button>
     <div id="adviceBox" style="margin-top:10px;display:flex;flex-direction:column;gap:8px"></div>
     <div class="muted" id="statNote" style="margin-top:8px"></div>
+    </div><!-- /normalPanel -->
+
+    <!-- ---------------- 故事板 ---------------- -->
+    <div id="sbPanel" hidden>
+      <label class="field">
+        <span>画幅</span>
+        <div class="size-row" id="sbRatios">
+          <button data-ratio="9:16" class="active">9:16 竖版</button>
+          <button data-ratio="16:9">16:9 横版</button>
+        </div>
+      </label>
+      <div class="hintline">
+        一次连续生成；默认 <b>sdxl / fp16 / lightning</b>，首张含权重加载约 30–40 秒，之后每张约 6–7 秒。空的镜头会跳过。
+      </div>
+      <div class="sb-list" id="sbInputs"></div>
+      <button class="primary" id="sbGo" style="margin-top:12px">连续生成</button>
+      <div class="muted" id="sbNote" style="margin-top:8px"></div>
+    </div>
   </section>
 
   <!-- ---------------- 右：结果 ---------------- -->
@@ -140,6 +161,6 @@
 
 </main>
 
-<script src="/static/app.js"></script>
+<script src="/static/app.js?v=3"></script>
 </body>
 </html>
