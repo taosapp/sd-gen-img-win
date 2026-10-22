@@ -33,6 +33,7 @@ from .runtime import (
     pipeline_weight_bytes,
     plan_placement,
     set_cudnn_benchmark,
+    silence_known_warnings,
 )
 
 # 模型家族 -> (文生图类名, 图生图类名)
@@ -236,6 +237,7 @@ class Engine:
         self.project_root = project_root
         self.verbose = verbose
         self.use_safety_checker = use_safety_checker
+        silence_known_warnings()
         self._cache: dict[tuple, LoadedPipeline] = {}
         self.hw = probe_hardware()
         self.hf_cfg = configure_hf(project_root, source=hf_source, proxy=hf_proxy, verbose=verbose)

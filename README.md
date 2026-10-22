@@ -599,6 +599,22 @@ python genimg.py "..., American comic style." --style-expand off   # 关闭
 
 串行排队执行——单卡并发只会互相抢显存，串行反而更快。
 
+### 6.13 控制台里那些"吓人"的提示，哪些要管
+
+跑图时 diffusers 会刷一批固定提示。实测归类如下（`genimg/runtime.py::silence_known_warnings`）：
+
+| 提示 | 性质 | 处理 |
+|---|---|---|
+| `There are modules in AutoencoderKL that should be kept in float32: []` | **无害**。方括号里是"必须保持 fp32 的模块"，**为空**说明一个都没有；只是 `to()` 转 dtype 时的固定播报 | 已屏蔽 |
+| `There are modules in UNet2DConditionModel that should be kept in float32: []` | 同上 | 已屏蔽 |
+| `No LoRA keys associated to CLIPTextModel found with the prefix='text_encoder'` | **无害**。SDXL-Lightning 是只含 UNet 的 LoRA，文本编码器里当然找不到 key | 已屏蔽 |
+| `No LoRA keys associated to CLIPTextModelWithProjection ...` | 同上（SDXL 的第二个文本编码器） | 已屏蔽 |
+| `` `upcast_vae` is deprecated `` | diffusers **自己内部**在调（SDXL img2img 流程），不是本项目调用 | 已屏蔽 |
+| `Token indices sequence length is longer than ... (835 > 77)` | **有用**：提示词超长被 CLIP 截断 | **保留** |
+
+屏蔽方式是给 `diffusers.models.modeling_utils`、`diffusers.loaders.*` 这些**具体 logger**
+挂过滤器，按消息关键字精确匹配；没有动全局日志级别，所以真正的异常警告照样会打印出来。
+
 ## 7. 实测数据（512×512）
 
 ### 7.1 全量挡位矩阵

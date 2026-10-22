@@ -151,6 +151,56 @@ def set_cudnn_benchmark(enabled: bool) -> None:
     torch.backends.cudnn.benchmark = bool(enabled)
 
 
+def silence_known_warnings() -> None:
+    """屏蔽三条**已验证无害**的第三方警告（其余警告照常输出）。
+
+    1) ``There are modules in ... should be kept in float32: []``
+       —— diffusers 在运行时转换 VAE/UNet 的 dtype 时固定打印。方括号里是**需要保留
+       fp32 的模块列表，为空**就表示没有任何模块受影响，纯属噪音。
+       （SDXL 的 img2img 管线内部会调 ``upcast_vae()``，每跑一次就刷一条。）
+
+    2) ``No LoRA keys associated to CLIPTextModel...``
+       —— SDXL-Lightning 是**只含 UNet** 的 LoRA，加载时去文本编码器里找 key 必然找不到。
+       这是预期行为，不影响出图（实测 4 步/8 步都正常）。
+
+    3) ``upcast_vae is deprecated``
+       —— diffusers 自己内部在调，不是我们调用的。
+
+    刻意**不**屏蔽的：``Token indices sequence length is longer than ...``（提示词
+    超长被截断，这个信息有用）、以及所有 torch/accelerate 的显存相关警告。
+    """
+    import logging
+    import warnings
+
+    # 这三条是 logging 打的（diffusers 用 logging.get_logger(__name__)），
+    # 必须在记录源头（对应模块的 logger）上过滤，warnings 模块拦不住。
+    needles = (
+        "should be kept in float32",
+        "No LoRA keys associated to",
+        "upcast_vae",
+    )
+
+    class _DropNoise(logging.Filter):
+        def filter(self, record: logging.LogRecord) -> bool:
+            try:
+                msg = record.getMessage()
+            except Exception:  # noqa: BLE001
+                return True
+            return not any(n in msg for n in needles)
+
+    for name in (
+        "diffusers.models.modeling_utils",
+        "diffusers.loaders.lora_pipeline",
+        "diffusers.loaders.lora_base",
+        "diffusers.loaders.peft",
+        "diffusers.pipelines.pipeline_utils",
+    ):
+        logging.getLogger(name).addFilter(_DropNoise())
+
+    # `upcast_vae` 弃用提示走的是 warnings（FutureWarning），单独压
+    warnings.filterwarnings("ignore", message=r".*`upcast_vae` is deprecated.*")
+
+
 def empty_cuda_cache() -> None:
     import torch
 
