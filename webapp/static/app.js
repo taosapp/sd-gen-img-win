@@ -183,7 +183,7 @@ async function submit() {
   const fd = new FormData();
   fd.append('mode', state.mode);
   fd.append('prompt', prompt);
-  fd.append('negative', $('negative').value);
+  fd.append('negative', $('negative').value || '');
   fd.append('model', $('model').value);
   fd.append('precision', $('precision').value);
   fd.append('gear', $('gear').value);
@@ -429,7 +429,7 @@ function applyRecipe() {
   $('guidance').value = '';
   $('strength').value = '0.5';
   $('strengthVal').textContent = '0.50';
-  if (!$('negative').value.trim()) $('negative').value = 'blurry, low quality, deformed';
+  // 负向输入已在界面上禁用，这里不再回填默认值
   refreshAdvice();
 }
 

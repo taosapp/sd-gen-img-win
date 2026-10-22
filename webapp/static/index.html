@@ -30,7 +30,7 @@
 
     <label class="field">
       <span>提示词</span>
-      <textarea id="prompt" placeholder="a red panda astronaut floating in space, cinematic lighting, highly detailed">a red panda astronaut floating in space, cinematic lighting, highly detailed</textarea>
+      <textarea id="prompt" placeholder="a red panda astronaut floating in space, cinematic lighting, highly detailed"></textarea>
     </label>
     <div class="hintline">
       <b>建议用英文提示词</b>（如 <b>watercolor painting style, rich details</b>）——中文会先经离线词典转英文，
@@ -41,9 +41,12 @@
     </div>
 
     <label class="field">
-      <span>负向提示词（turbo / lightning 档关闭了 CFG，此项不生效）</span>
-      <textarea id="negative" placeholder="blurry, low quality, watermark">blurry, low quality, watermark</textarea>
+      <span>负向提示词（已禁用）</span>
+      <textarea id="negative" placeholder="已禁用" disabled></textarea>
     </label>
+    <div class="hintline">
+      负向输入框已禁用；需要时用命令行 <b>--negative</b> 指定（注意：turbo / lightning 档 CFG=0，负向不生效）
+    </div>
 
     <div class="grid2">
       <label class="field">
