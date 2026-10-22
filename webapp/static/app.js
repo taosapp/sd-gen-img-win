@@ -186,6 +186,7 @@ async function runStoryboard() {
   const fd = new FormData();
   fd.append('prompts', JSON.stringify(prompts));
   fd.append('ratio', state.sbRatio || '9:16');
+  fd.append('gear', $('sbGear') ? $('sbGear').value : 'lightning');
   try {
     const res = await fetch('/api/storyboard', { method: 'POST', body: fd });
     const data = await res.json();
