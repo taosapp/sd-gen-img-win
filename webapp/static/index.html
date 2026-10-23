@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>genimg · 本机生图</title>
-<link rel="stylesheet" href="/static/style.css?v=4">
+<link rel="stylesheet" href="/static/style.css?v=5">
 </head>
 <body>
 
@@ -80,23 +80,26 @@
     </div>
 
     <label class="field">
-      <span>画幅</span>
+      <span>比例</span>
       <div class="size-row" id="ratios">
         <button data-ratio="auto" class="active">自动</button>
         <button data-ratio="1:1">1:1</button>
         <button data-ratio="3:4">3:4</button>
-        <button data-ratio="2:3">2:3</button>
         <button data-ratio="4:3">4:3</button>
         <button data-ratio="16:9">16:9</button>
         <button data-ratio="9:16">9:16</button>
-        <button data-ratio="custom">自定义</button>
       </div>
-      <div class="grid2">
-        <input id="width" type="number" value="512" min="256" max="1536" step="8" disabled>
-        <input id="height" type="number" value="512" min="256" max="1536" step="8" disabled>
+    </label>
+
+    <label class="field">
+      <span>像素</span>
+      <div class="size-row" id="pixels">
+        <button data-px="512" class="active">512</button>
+        <button data-px="768">768</button>
+        <button data-px="1024">1024</button>
       </div>
       <div class="hintline" id="sizeHint">
-        自动：图生图跟随参考图比例，文生图读提示词里的 <b>3:4</b> 这类写法，都没有就用模型原生比例
+        自动：图生图跟随参考图比例；文生图读提示词里的 <b>3:4</b>。选比例后按像素档换算成最接近的 64 倍数。
       </div>
     </label>
 
@@ -170,6 +173,6 @@
 
 </main>
 
-<script src="/static/app.js?v=4"></script>
+<script src="/static/app.js?v=5"></script>
 </body>
 </html>

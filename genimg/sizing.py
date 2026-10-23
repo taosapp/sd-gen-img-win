@@ -177,12 +177,13 @@ def resolve(
     model_key: str = "sd-turbo",
     init_size: tuple[int, int] | None = None,
     model_native: int | None = None,
+    base_override: int | None = None,
 ) -> SizeDecision:
     """按优先级决定最终尺寸。
 
     优先级：显式宽高 > spec（WxH 或比例）> 提示词里的画幅要求 > 参考图比例 > 模型原生 1:1。
     """
-    base = model_native or native_base_of(model_key)
+    base = base_override or model_native or native_base_of(model_key)
     notes: list[str] = []
 
     # 只给了一边（例如只有 --width）：无法确定比例，退回后面的规则

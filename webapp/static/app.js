@@ -9,7 +9,9 @@ const state = {
   jobId: null,
   timer: null,
   busy: false,
-  sizeMode: 'auto',
+  ratio: 'auto',
+  ratio: 'auto',
+  pixels: 512,
   sbRatio: '9:16',
   sbTimer: null,
 };
@@ -36,27 +38,15 @@ async function loadCatalog() {
     modelSel.appendChild(opt);
   });
 
-  // 精度
-  const precSel = $('precision');
-  precSel.innerHTML = '';
-  data.precisions.forEach((p) => {
-    const opt = document.createElement('option');
-    opt.value = p.key;
-    opt.textContent = p.ok ? p.label : `${p.label} — 不可用`;
-    opt.disabled = !p.ok;
-    opt.title = p.ok ? p.note : p.reason;
-    precSel.appendChild(opt);
-  });
+  // 精度：不可用的不列出（硬件不支持 + 该模型实测否决），由 syncPrecisionOptions 按模型重建
 
   // 默认值：优先用上次选择，否则用服务端默认
   const last = JSON.parse(localStorage.getItem('genimg.last') || '{}');
   modelSel.value = last.model || data.defaults.model;
-  precSel.value = last.precision || data.defaults.precision;
 
   syncModel();
-  $('width').value = last.width || data.defaults.width;
-  $('height').value = last.height || data.defaults.height;
-  setSizeMode('auto');
+  setRatio(state.ratio || 'auto');
+  setPixels(state.pixels || 512);
 
   await loadHistory();
   refreshAdvice();
@@ -66,9 +56,39 @@ function currentModel() {
   return state.catalog.models.find((m) => m.key === $('model').value);
 }
 
+/* 只列出真正能跑的精度：硬件不支持（fp8）和该模型实测否决（SDXL 的 fp32/tf32）都不出现 */
+function syncPrecisionOptions(m) {
+  const sel = $('precision');
+  const prev = sel.value || state.precision;
+  const blocked = (m && m.blocked_precisions) || [];
+  const usable = state.catalog.precisions.filter((p) => p.ok && !blocked.includes(p.key));
+
+  sel.innerHTML = '';
+  usable.forEach((p) => {
+    const opt = document.createElement('option');
+    opt.value = p.key;
+    opt.textContent = p.label;
+    opt.title = p.note;
+    sel.appendChild(opt);
+  });
+
+  const values = usable.map((p) => p.key);
+  const last = JSON.parse(localStorage.getItem('genimg.last') || '{}');
+  const fallback = (state.catalog && state.catalog.defaults && state.catalog.defaults.precision) || '';
+  let want = values[0] || '';
+  if (values.includes(fallback)) want = fallback;
+  if (values.includes(last.precision)) want = last.precision;
+  if (values.includes(prev)) want = prev;
+  sel.value = want;
+  sel.disabled = values.length === 0;
+  state.precision = want;
+}
+
 function syncModel() {
   const m = currentModel();
   if (!m) return;
+
+  syncPrecisionOptions(m);
 
   // 画质挡位按模型过滤
   const gearSel = $('gear');
@@ -87,6 +107,7 @@ function syncModel() {
   gearSel.value = valid.includes(prev) ? prev : (m.default_gear || valid[0]);
 
   $('statNote').textContent = m.note;
+
   syncGear();
 }
 
@@ -256,26 +277,49 @@ function renderStoryboard(data) {
   });
 }
 
-function setSizeMode(mode) {
-  state.sizeMode = mode;
-  document.querySelectorAll('#ratios button').forEach((b) => {
-    b.classList.toggle('active', b.dataset.ratio === mode);
-  });
-  const custom = mode === 'custom';
-  $('width').disabled = !custom;
-  $('height').disabled = !custom;
+/* 与后端 size_for_ratio 同算法的前端版：只用于提示“实际会出多大” */
+function bucketFor(rw, rh, base) {
+  let best = null;
+  for (let w = 256; w <= 1536; w += 64) {
+    const h = Math.round((w * rh) / rw / 64) * 64;
+    if (h < 256 || h > 1536) continue;
+    const ratioErr = Math.abs(Math.log(w / h / (rw / rh)));
+    let areaErr = Math.abs(Math.log((w * h) / (base * base)));
+    if (w * h > base * base) areaErr *= 2.5;
+    const score = ratioErr * 20 + areaErr;
+    if (!best || score < best.score) best = { score, w, h };
+  }
+  return best ? [best.w, best.h] : [base, base];
+}
+
+function refreshSizeHint() {
   const hint = $('sizeHint');
   if (!hint) return;
-  if (mode === 'auto') {
-    const f = state.initFile;
-    hint.innerHTML = f
-      ? '自动：当前会跟随参考图比例（等比装入，不拉伸）'
-      : '自动：图生图跟随参考图比例，文生图读提示词里的 <b>3:4</b> 这类写法，都没有就用模型原生比例';
-  } else if (custom) {
-    hint.innerHTML = '自定义：直接填宽高（能被 8 整除），图生图会<b>等比缩放后留白</b>，不会拉伸变形';
-  } else {
-    hint.innerHTML = `固定 <b>${mode}</b>：按模型原生面积自动选尺寸，图生图等比装入不拉伸`;
+  if (state.ratio === 'auto') {
+    hint.innerHTML = state.initFile
+      ? '自动：跟随参考图比例（等比装入，不拉伸）'
+      : '自动：图生图跟随参考图；文生图读提示词里的 <b>3:4</b>，都没有则用模型原生比例';
+    return;
   }
+  const [rw, rh] = state.ratio.split(':').map(Number);
+  const [w, h] = bucketFor(rw, rh, state.pixels);
+  hint.innerHTML = `将输出 <b>${w}×${h}</b>（${state.ratio} · ${state.pixels} 档，已对齐到 64 倍数）`;
+}
+
+function setRatio(ratio) {
+  state.ratio = ratio;
+  document.querySelectorAll('#ratios button').forEach((b) => {
+    b.classList.toggle('active', b.dataset.ratio === ratio);
+  });
+  refreshSizeHint();
+}
+
+function setPixels(px) {
+  state.pixels = Number(px) || 512;
+  document.querySelectorAll('#pixels button').forEach((b) => {
+    b.classList.toggle('active', Number(b.dataset.px) === state.pixels);
+  });
+  refreshSizeHint();
 }
 
 function setFile(file) {
@@ -294,7 +338,7 @@ function setFile(file) {
   // 读一下真实宽高，把「自动＝跟随参考图」具体化到界面
   const probe = new Image();
   probe.onload = () => {
-    if (state.sizeMode === 'auto' && $('sizeHint')) {
+    if (state.ratio === 'auto' && $('sizeHint')) {
       $('sizeHint').innerHTML =
         `自动：将跟随参考图比例 <b>${probe.naturalWidth}×${probe.naturalHeight}</b>` +
         `（等比装入，不拉伸）`;
@@ -335,9 +379,8 @@ async function submit() {
   fd.append('model', $('model').value);
   fd.append('precision', $('precision').value);
   fd.append('gear', $('gear').value);
-  fd.append('size', state.sizeMode || 'auto');
-  fd.append('width', $('width').value);
-  fd.append('height', $('height').value);
+  fd.append('ratio', state.ratio || 'auto');
+  fd.append('pixels', state.pixels || 512);
   fd.append('steps', $('steps').value);
   fd.append('guidance', $('guidance').value);
   fd.append('seed', $('seed').value);
@@ -348,8 +391,8 @@ async function submit() {
   localStorage.setItem('genimg.last', JSON.stringify({
     model: $('model').value,
     precision: $('precision').value,
-    width: $('width').value,
-    height: $('height').value,
+    ratio: state.ratio,
+    pixels: state.pixels,
   }));
 
   state.busy = true;
@@ -611,10 +654,11 @@ document.addEventListener('DOMContentLoaded', () => {
   setSbRatio(state.sbRatio);
 
   document.querySelectorAll('#ratios button').forEach((b) => {
-    b.onclick = () => setSizeMode(b.dataset.ratio);
+    b.onclick = () => setRatio(b.dataset.ratio);
   });
-  $('width').oninput = () => {};
-  $('height').oninput = () => {};
+  document.querySelectorAll('#pixels button').forEach((b) => {
+    b.onclick = () => setPixels(b.dataset.px);
+  });
 
   $('drop').onclick = () => $('file').click();
   $('file').onchange = (e) => setFile(e.target.files[0]);

@@ -298,6 +298,8 @@ def catalog() -> dict:
                 "gears": quality_gears_for(prof),
                 "note": prof.note,
                 "cached": is_repo_cached(prof.repo, PROJECT),
+                "blocked_precisions": list(getattr(prof, "blocked_precisions", ())),
+                "blocked_reason": getattr(prof, "blocked_reason", ""),
                 "supports_negative": prof.supports_negative,
             }
         )
@@ -344,6 +346,8 @@ def generate(
     model: str = Form("sd-turbo"),
     precision: str = Form("fp16"),
     gear: str = Form(""),
+    ratio: str = Form("auto"),
+    pixels: int = Form(512),
     size: str = Form("auto"),
     width: int = Form(512),
     height: int = Form(512),
@@ -362,9 +366,11 @@ def generate(
     if mode == "img2img" and image is None:
         raise HTTPException(status_code=400, detail="图生图需要先上传一张图片")
 
-    size_spec = (size or "auto").strip()
-    custom_wh = size_spec in ("custom", "")
-    if custom_wh:
+    ratio_spec = (ratio or "auto").strip()
+    # 旧客户端可能还在传 size（或 custom + width/height），保留兼容
+    if ratio_spec == "auto" and (size or "").strip() not in ("", "auto"):
+        ratio_spec = (size or "").strip()
+    if ratio_spec == "custom":
         for name, val in (("width", width), ("height", height)):
             if not (MIN_SIZE <= val <= MAX_SIZE) or val % 8 != 0:
                 raise HTTPException(status_code=400, detail=f"{name} 需为 {MIN_SIZE}–{MAX_SIZE} 之间且能被 8 整除")
@@ -382,7 +388,7 @@ def generate(
         raise HTTPException(status_code=400, detail=str(exc).strip('"'))
 
     hw = probe_hardware()
-    why = check_precision_support(prec, hw)
+    why = check_precision_support(prec, hw, profile)
     if why:
         raise HTTPException(status_code=400, detail=f"精度挡位 {prec.key} 在本机不可用：{why}")
 
@@ -410,15 +416,32 @@ def generate(
         _Image.open(io.BytesIO(raw)).convert("RGB").save(init_path)
 
     # 尺寸：自定义像素 > 显式比例 > 提示词里的画幅 > 参考图 > 模型原生
-    decision = resolve_size(
-        width=width if custom_wh else None,
-        height=height if custom_wh else None,
-        spec=None if size_spec == "auto" or custom_wh else size_spec,
-        prompt=prompt,
-        model_key=profile.key,
-        init_size=init_size,
-        model_native=profile.native_size,
-    )
+    if ratio_spec == "custom":
+        decision = resolve_size(
+            width=width,
+            height=height,
+            prompt=prompt,
+            model_key=profile.key,
+            init_size=init_size,
+            model_native=profile.native_size,
+        )
+    elif ratio_spec == "auto":
+        decision = resolve_size(
+            prompt=prompt,
+            model_key=profile.key,
+            init_size=init_size,
+            model_native=profile.native_size,
+        )
+    else:
+        px = pixels if pixels in (512, 768, 1024) else 512
+        decision = resolve_size(
+            spec=ratio_spec,
+            base_override=px,
+            prompt=prompt,
+            model_key=profile.key,
+            init_size=init_size,
+            model_native=profile.native_size,
+        )
 
     warning = ""
     if not is_repo_cached(profile.repo, PROJECT):
@@ -498,7 +521,7 @@ def storyboard(
         raise HTTPException(status_code=400, detail=str(exc).strip('"'))
 
     hw = probe_hardware()
-    why = check_precision_support(prec, hw)
+    why = check_precision_support(prec, hw, profile)
     if why:
         raise HTTPException(status_code=400, detail=f"精度挡位 {prec.key} 在本机不可用：{why}")
 
