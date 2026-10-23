@@ -52,7 +52,7 @@ micro-conditioning 输入。直接在 512×512 出图时，diffusers 默认把�
 | 配置 | 512×512 出图表现 |
 |---|---|
 | SDXL + 默认条件化 | 出现"三格贴纸"式构图崩坏（本轮实验图已从仓库移除，可在提交 `8dfa800` 中查看） |
-| SDXL + 原生分辨率条件化 (1024) | 见 §7 实测（脚本 `tools/exp_lowres.py`） |
+| SDXL + 原生分辨率条件化 (1024) | 见 §7 实测（脚本 `tools/archive/exp_lowres.py`） |
 | SD1.5（原生 512） | 构图正常 |
 | SD-Turbo（原生 512） | 构图正常，且最快 |
 
@@ -391,7 +391,7 @@ sd15 / SDXL 均实测通过（输出均值约 130，非黑图）。
 **命令**
 
 ```powershell
-python tools\make_poster.py `
+python tools\archive\make_poster.py `
   --image "C:\Users\PPXW\Desktop\1.jpg" "C:\Users\PPXW\Desktop\3.jpg" `
   --prompt-file "C:\Users\PPXW\Desktop\水彩上下crad提示词.txt" `
   --model sdxl --gear balanced --size 3:4 --strength 0.72 --art-scale 0.62 `
@@ -725,6 +725,29 @@ python genimg.py "..., American comic style." --style-expand off   # 关闭
 
 ---
 
+### 7.5 SDXL 在 512 为什么像插画（实测：分辨率决定，与精度无关）
+
+同一提示词、同一种子、同模型（SDXL）、同挡位（balanced），只改分辨率：
+
+| 尺寸 | 精度 | 耗时 | 结果 |
+|---|---|---|---|
+| 512 | fp16 | 6.39 s | **扁平矢量风，熊猫肢体变形** |
+| 768 | fp16 | 16.67 s | 卡通插画，构图正常 |
+| 832 | fp16 | 17.84 s | 接近照片，偏柔 |
+| **1024** | fp16 | 24.15 s | **写实照片质感** ✅ |
+| 1024 | bf16 | 24.20 s | 与 fp16 肉眼无差 |
+
+结论：
+
+- **SDXL 原生 1024**。低于原生分辨率时它离开训练分布，退回"插画/矢量"先验，
+  512 下会出现肢体变形（上图第一格）。
+- **精度（fp16 / bf16）对画质没有影响**，只影响速度与显存。
+- 所以「SDXL + 512」这类组合看的是**模型的短板**，不代表 SDXL 的真实水平；
+  需要 512 写实请用 SD1.5，需要 SDXL 的画质请出 1024。
+
+> 参考矩阵 `results/ref_matrix/matrix_A.png` 里 SDXL 那几行都是 512，
+> 因此呈插画风属预期，不是挡位缺陷。
+
 ## 8. 目录结构
 
 ```
@@ -749,15 +772,27 @@ sd-gen-img-win/
 │     └─ style.css
 ├─ tools/
 │  ├─ fetch_models.py         # 按需下载权重（allow_patterns 只拉需要的文件）
-│  ├─ make_contact_sheet.py   # 把样图拼成带标注的对照网格
-│  ├─ exp_lowres.py           # 实验：SDXL 在 512 下的条件化对比
-│  ├─ diag_profile.py         # 逐组件性能剖析（定位慢在哪）
-│  ├─ diag_dtype.py           # 精度参数名有效性验证
 │  ├─ check_frontend.py       # 前端 ID 交叉检查（浏览器不能访 localhost 时兜底）
-│  └─ selfcheck.py            # 语法/导入自检
+│  ├─ selfcheck.py            # 语法/导入自检
+│  ├─ count_tokens.py         # 量提示词的 CLIP 词元数
+│  ├─ sheet.py                # 把几张图拼成带标题的对照图
+│  ├─ test_web.py             # Web 端到端测试（文生图 + 图生图）
+│  ├─ test_storyboard.py      # 故事板批次测试
+│  ├─ test_sizing.py          # 尺寸解析自检
+│  ├─ test_ratio_pixels.py    # 比例 + 像素档组合测试
+│  ├─ test_ratio_916.py       # 9:16 画幅测试
+│  ├─ test_size_api.py        # 尺寸接口测试
+│  ├─ test_translate.py       # 中文词典翻译自检
+│  └─ archive/                # 历史实验与诊断脚本（只用于复现结论，不参与运行）
+│     ├─ exp_lowres.py        #   SDXL 在 512 下的条件化对比
+│     ├─ exp_sdxl_resolution.py#  512/768/832/1024 分辨率对照
+│     ├─ exp_bf16_vs_fp16.py  #  bf16 与 fp16 速度/画质对比
+│     ├─ make_ref_matrix.py   #  模型 × 精度 × 挡位参考矩阵
+│     ├─ make_poster.py       #  两段式海报
+│     └─ …                    #  其余（工笔分镜、中文先验、强度扫描等）
 ├─ models/                    # 权重缓存（HF 格式）
 ├─ outputs/                   # 生成结果
-└─ results/                   # 基准与实验数据（仓库内为空，产物不入库）
+└─ results/                   # 实测产物（整体不入库，见 .gitignore）
 ```
 
 ---

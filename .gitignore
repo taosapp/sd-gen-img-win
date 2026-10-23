@@ -7,22 +7,8 @@ outputs/
 logs/
 .zwork/
 
-# ---- 实测素材：只保留汇总表(CSV/JSON)与 contact sheet，逐张样本不入库 ----
-results/**/samples/
-results/img2img_exp/*/
-results/lowres_exp/*/
-results/zh_test*/
-results/zh_verify*/
-results/zh_final/
-results/zh_dict_final/
-results/poster_ratio_exp/*/
-results/fp16fix_*/
-results/ratio_timing/
-results/poster_two_pass_s070/
-results/poster_two_pass/*/_bottom_src.png
-results/poster_two_pass/*/sdxl_*.png
-results/**/_bottom_src.png
-results/poster_*/*/sdxl_*.png
+# ---- 实测产物一律不入库（体积大，用 tools/archive 里的脚本可重新生成）----
+results/
 
 # ---- Python ----
 __pycache__/
@@ -36,6 +22,3 @@ env/
 Thumbs.db
 desktop.ini
 .DS_Store
-
-# 实测产物一律不入库（体积大，可用 tools 重新生成）
-results/
