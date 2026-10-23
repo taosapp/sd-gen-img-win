@@ -54,7 +54,7 @@ while True:
 urls = [i["url"] for i in st["items"] if i["url"]]
 print(f"完成 {st['done']}/{st['total']}，失败 {st['failed']}，耗时 {time.time() - t0:.1f}s")
 
-root = r"D:\ai\gen-img-agent"
+root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))  # 本脚本位于 tools/
 paths = [os.path.join(root, u.lstrip("/").replace("/", os.sep)) for u in urls]
 folders = {os.path.dirname(p) for p in paths}
 names = [os.path.basename(p) for p in paths]

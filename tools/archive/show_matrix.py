@@ -1,8 +1,9 @@
 """列出可跑矩阵：模型 × 精度 × 画质挡位。"""
 
+import os
 import sys
 
-sys.path.insert(0, r"D:\ai\gen-img-agent")
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))  # 本脚本位于 tools/archive/
 
 from genimg.presets import (  # noqa: E402
     MODEL_PROFILES,
