@@ -279,7 +279,7 @@ class Engine:
         # 因此换挡时先释放旧管线。
         self._evict_all()
 
-        unsupported = check_precision_support(precision, self.hw)
+        unsupported = check_precision_support(precision, self.hw, profile)
         if unsupported:
             raise RuntimeError(f"精度挡位 {precision.key} 在本机不可用：{unsupported}")
 

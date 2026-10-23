@@ -171,6 +171,12 @@ class ModelProfile:
     note: str
     variant: str | None = None  # 默认下载的仓库变体（fp16 / None=fp32）
     aliases: tuple[str, ...] = ()
+    # 已被实测否决的精度组合（单张 > 60 秒，性价比为负），不再提供
+    blocked_precisions: tuple[str, ...] = ()
+    blocked_reason: str = ""
+    # 已被实测否决的画质挡位（如 sd-turbo 在 25 步下会崩），不再提供
+    blocked_gears: tuple[str, ...] = ()
+    blocked_gears_reason: str = ""
     extra: dict = field(default_factory=dict)
 
 
@@ -186,6 +192,12 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
         default_gear="balanced",
         note="SDXL 是 12GB 显存上的画质/速度折中点，原生 1024。512 出图完全可行，但原生分辨率下细节更足。",
         variant="fp16",
+        blocked_precisions=("fp32", "tf32"),
+        blocked_reason=(
+            "SDXL 在 fp32/tf32 下显存不够，被迫顺序卸载（sequential_offload）："
+            "512 测 balanced 单张 58 秒、quality/max 更久，已超过 1 分钟预算，"
+            "而画质与 fp16/bf16 无明显差异，因此不再提供该组合。"
+        ),
         aliases=("xl", "sdxl-base"),
     ),
     "sd15": ModelProfile(
@@ -213,6 +225,12 @@ MODEL_PROFILES: dict[str, ModelProfile] = {
         note="对抗蒸馏的 512 原生模型，1~4 步即可出图，是 512 分辨率下最快的可用档位；代价是不支持 CFG/负向提示词。",
         variant="fp16",
         aliases=("turbo", "sdturbo"),
+        blocked_gears=("draft", "balanced", "quality", "max"),
+        blocked_gears_reason=(
+            "sd-turbo 是对抗蒸馏模型，只在 1–4 步（turbo 档）内有效。"
+            "实测 25 步 + CFG 7 会把画面过曝成高饱和噪点（512 下已对照确认），"
+            "因此只保留 turbo 档。"
+        ),
     ),
 }
 
@@ -276,11 +294,19 @@ def resolve_quality(name: str, profile: ModelProfile) -> QualityGear:
     if gear.only_family and profile.family not in gear.only_family:
         usable = [k for k, g in QUALITY_GEARS.items() if not g.only_family or profile.family in g.only_family]
         raise ValueError(f"画质挡位 {gear.key!r} 不适用于模型 {profile.key!r}；该模型可用：{', '.join(usable)}")
+    if gear.key in getattr(profile, "blocked_gears", ()):
+        reason = getattr(profile, "blocked_gears_reason", "") or "实测效果不达标"
+        raise ValueError(f"画质挡位 {gear.key!r} 在模型 {profile.key!r} 上已禁用：{reason}")
     return gear
 
 
 def quality_gears_for(profile: ModelProfile) -> list[str]:
-    return [k for k, g in QUALITY_GEARS.items() if not g.only_family or profile.family in g.only_family]
+    blocked = set(getattr(profile, "blocked_gears", ()))
+    return [
+        k
+        for k, g in QUALITY_GEARS.items()
+        if (not g.only_family or profile.family in g.only_family) and k not in blocked
+    ]
 
 
 # LoRA 档位：仓库 + 文件名（均为官方发布的 394MB 级小文件）
@@ -365,8 +391,11 @@ def probe_hardware() -> HardwareInfo:
     return info
 
 
-def check_precision_support(gear: PrecisionGear, hw: HardwareInfo) -> str | None:
-    """返回不支持的原因；支持则返回 None。"""
+def check_precision_support(gear: PrecisionGear, hw: HardwareInfo, profile=None) -> str | None:
+    """返回不支持的原因；支持则返回 None。
+
+    两个层面：硬件能力（fp8/bf16）与**模型实测否决**（如 SDXL 的 fp32/tf32 单张 > 60 秒）。
+    """
     if not hw.available:
         return "本机没有可用的 CUDA 设备"
     if gear.min_cc and hw.cc < gear.min_cc:
@@ -377,4 +406,6 @@ def check_precision_support(gear: PrecisionGear, hw: HardwareInfo) -> str | None
         )
     if gear.key == "bf16" and not hw.supports_bf16:
         return f"{gear.key} 需要 Ampere 及以上算力，本机为 sm_{hw.cc[0]}{hw.cc[1]}"
+    if profile is not None and gear.key in getattr(profile, "blocked_precisions", ()):
+        return getattr(profile, "blocked_reason", "") or f"{profile.key} 不提供 {gear.key} 精度"
     return None

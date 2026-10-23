@@ -316,7 +316,7 @@ def main(argv: list[str] | None = None) -> int:
         print()
 
     hw = probe_hardware()
-    why = check_precision_support(precision, hw)
+    why = check_precision_support(precision, hw, profile)
     if why:
         msg = f"精度挡位 {precision.key} 在本机不可用：{why}"
         if args.json:
@@ -325,7 +325,7 @@ def main(argv: list[str] | None = None) -> int:
             print(f"[错误] {msg}")
             print(
                 "[提示] 本机可用挡位："
-                + "、".join(k for k, g in PRECISION_GEARS.items() if check_precision_support(g, hw) is None)
+                + "、".join(k for k, g in PRECISION_GEARS.items() if check_precision_support(g, hw, profile) is None)
             )
         return 3
 
