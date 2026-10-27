@@ -21,7 +21,6 @@
     <div class="tabs" id="tabs">
       <button data-mode="txt2img" class="active">文生图</button>
       <button data-mode="img2img">图生图（上传图片）</button>
-      <button data-mode="storyboard">故事板</button>
     </div>
 
     <div id="normalPanel">
@@ -99,7 +98,7 @@
         <button data-px="1024">1024</button>
       </div>
       <div class="hintline" id="sizeHint">
-        自动：图生图跟随参考图比例；文生图读提示词里的 <b>3:4</b>。选比例后按像素档换算成最接近的 64 倍数。
+        自动：图生图跟随参考图比例；文生图读提示词里的 <b>3:4</b>。自动只决定比例，尺度由像素档（512/768/1024）决定。
       </div>
     </label>
 
@@ -128,31 +127,6 @@
     <div class="muted" id="statNote" style="margin-top:8px"></div>
     </div><!-- /normalPanel -->
 
-    <!-- ---------------- 故事板 ---------------- -->
-    <div id="sbPanel" hidden>
-      <label class="field">
-        <span>画质挡位</span>
-        <select id="sbGear">
-          <option value="lightning">lightning（4 步，约 7 秒/张，风格与主体容易跑偏）</option>
-          <option value="balanced" selected>balanced（25 步，约 20–30 秒/张，稳定）</option>
-        </select>
-      </label>
-      <label class="field">
-        <span>画幅</span>
-        <div class="size-row" id="sbRatios">
-          <button data-ratio="9:16" class="active">9:16 竖版</button>
-          <button data-ratio="16:9">16:9 横版</button>
-        </div>
-      </label>
-      <div class="hintline">
-        一次连续生成；默认 <b>sdxl / fp16 / lightning</b>，首张含权重加载约 30–40 秒，之后每张约 6–7 秒。
-        <b>默认 3 个镜头，最多 10 个</b>；只填几个就只生成几张。
-      </div>
-      <div class="sb-list" id="sbInputs"></div>
-      <button class="ghost" id="sbAdd" style="margin-top:8px;width:100%">＋ 添加镜头</button>
-      <button class="primary" id="sbGo" style="margin-top:12px">连续生成</button>
-      <div class="muted" id="sbNote" style="margin-top:8px"></div>
-    </div>
   </section>
 
   <!-- ---------------- 右：结果 ---------------- -->

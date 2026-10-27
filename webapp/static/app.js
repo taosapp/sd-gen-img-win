@@ -12,8 +12,6 @@ const state = {
   ratio: 'auto',
   ratio: 'auto',
   pixels: 512,
-  sbRatio: '9:16',
-  sbTimer: null,
 };
 
 /* ---------------------------------------------------------------- 目录信息 */
@@ -126,155 +124,11 @@ function setMode(mode) {
   document.querySelectorAll('#tabs button').forEach((b) => {
     b.classList.toggle('active', b.dataset.mode === mode);
   });
-  const sb = mode === 'storyboard';
-  $('normalPanel').hidden = sb;
-  $('sbPanel').hidden = !sb;
-  $('results').classList.toggle('storyboard', sb);
+  $('normalPanel').hidden = false;
   $('drop').hidden = mode !== 'img2img';
   $('strengthWrap').hidden = mode !== 'img2img';
   $('btnRecipe').hidden = mode !== 'img2img';
-  if (!sb) scheduleAdvice();
-}
-
-/* ---------------------------------------------------------------- 故事板 */
-const SB_COUNT = 10;
-const SB_DEFAULT = 3;
-
-function sbRows() {
-  return [...document.querySelectorAll('#sbInputs .sb-item')];
-}
-
-function updateSbAdd() {
-  const btn = $('sbAdd');
-  if (!btn) return;
-  const n = sbRows().length;
-  const full = n >= SB_COUNT;
-  btn.disabled = full;
-  btn.textContent = full ? `已达上限 ${SB_COUNT} 个` : `＋ 添加镜头（${n}/${SB_COUNT}）`;
-}
-
-function appendSbRow() {
-  const box = $('sbInputs');
-  if (!box || sbRows().length >= SB_COUNT) return;
-  const n = sbRows().length + 1;
-  const row = document.createElement('div');
-  row.className = 'sb-item';
-  const idx = document.createElement('div');
-  idx.className = 'idx';
-  idx.textContent = String(n);
-  const ta = document.createElement('textarea');
-  ta.rows = 2;
-  ta.placeholder = `镜头 ${n} 的提示词（英文）`;
-  row.appendChild(idx);
-  row.appendChild(ta);
-  box.appendChild(row);
-  updateSbAdd();
-}
-
-function buildSbInputs() {
-  const box = $('sbInputs');
-  if (!box) return;
-  box.innerHTML = '';
-  for (let i = 0; i < SB_DEFAULT; i += 1) appendSbRow();
-}
-
-function setSbRatio(ratio) {
-  state.sbRatio = ratio;
-  document.querySelectorAll('#sbRatios button').forEach((b) => {
-    b.classList.toggle('active', b.dataset.ratio === ratio);
-  });
-}
-
-async function runStoryboard() {
-  const prompts = [...document.querySelectorAll('#sbInputs textarea')]
-    .map((t) => t.value.trim())
-    .filter(Boolean);
-  if (!prompts.length) {
-    alert('至少填写一个镜头提示词');
-    return;
-  }
-  if (state.busy) return;
-
-  state.busy = true;
-  $('sbGo').disabled = true;
-  $('results').innerHTML = '';
-  $('metrics').innerHTML = '';
-  $('barWrap').hidden = false;
-  $('bar').style.width = '2%';
-  setBadge('提交中', 'run');
-  statusHtml(`<div class="muted">已提交 ${prompts.length} 个镜头，排队生成…</div>`);
-
-  const fd = new FormData();
-  fd.append('prompts', JSON.stringify(prompts));
-  fd.append('ratio', state.sbRatio || '9:16');
-  fd.append('gear', $('sbGear') ? $('sbGear').value : 'lightning');
-  try {
-    const res = await fetch('/api/storyboard', { method: 'POST', body: fd });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.detail || '提交失败');
-    $('sbNote').textContent = `批次 ${data.batch_id} · ${data.width}×${data.height} · 共 ${data.total} 张`;
-    pollStoryboard(data.batch_id, data.total, data.width, data.height);
-  } catch (err) {
-    state.busy = false;
-    $('sbGo').disabled = false;
-    setBadge('失败', 'err');
-    statusHtml(`<div class="error-box">${escapeHtml(err.message)}</div>`);
-  }
-}
-
-function pollStoryboard(batchId, total, width, height) {
-  const tick = async () => {
-    try {
-      const res = await fetch(`/api/storyboard/${batchId}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || '查询失败');
-      renderStoryboard(data);
-      const finished = data.done + data.failed;
-      $('bar').style.width = `${Math.round((finished / data.total) * 100)}%`;
-      setBadge(`${finished}/${data.total}`, data.failed ? 'err' : 'run');
-      statusHtml(
-        `<div class="kv"><div>画幅 <b>${width}×${height}</b></div>` +
-          `<div>已完成 <b>${finished}/${data.total}</b></div>` +
-          `<div>失败 <b>${data.failed}</b></div></div>`
-      );
-      if (finished >= data.total) {
-        clearInterval(state.sbTimer);
-        setBadge('完成', data.failed ? 'err' : 'ok');
-        state.busy = false;
-        $('sbGo').disabled = false;
-        loadHistory();
-      }
-    } catch (err) {
-      /* 单次轮询失败不终止，下一轮继续 */
-    }
-  };
-  tick();
-  state.sbTimer = setInterval(tick, 800);
-}
-
-function renderStoryboard(data) {
-  const box = $('results');
-  box.innerHTML = '';
-  data.items.forEach((it) => {
-    const fig = document.createElement('figure');
-    if (it.url) {
-      const img = document.createElement('img');
-      img.src = it.url;
-      img.alt = `镜头 ${it.shot}`;
-      img.onclick = () => window.open(it.url, '_blank');
-      fig.appendChild(img);
-    } else {
-      const ph = document.createElement('div');
-      ph.className = 'sb-shot';
-      ph.textContent =
-        it.status === 'error' ? '失败' : it.status === 'running' ? '生成中…' : '排队中';
-      fig.appendChild(ph);
-    }
-    const cap = document.createElement('figcaption');
-    cap.textContent = `镜头 ${it.shot}${it.status === 'error' ? ' · 失败' : ''}`;
-    fig.appendChild(cap);
-    box.appendChild(fig);
-  });
+  scheduleAdvice();
 }
 
 /* 与后端 size_for_ratio 同算法的前端版：只用于提示“实际会出多大” */
@@ -297,8 +151,8 @@ function refreshSizeHint() {
   if (!hint) return;
   if (state.ratio === 'auto') {
     hint.innerHTML = state.initFile
-      ? '自动：跟随参考图比例（等比装入，不拉伸）'
-      : '自动：图生图跟随参考图；文生图读提示词里的 <b>3:4</b>，都没有则用模型原生比例';
+      ? `自动：跟随参考图比例（等比装入，不拉伸）· 按 ${state.pixels} 档缩放`
+      : `自动：图生图跟随参考图；文生图读提示词里的 <b>3:4</b>，都没有则用模型原生比例 · 按 ${state.pixels} 档缩放`;
     return;
   }
   const [rw, rh] = state.ratio.split(':').map(Number);
@@ -645,14 +499,6 @@ document.addEventListener('DOMContentLoaded', () => {
   $('guidance').oninput = scheduleAdvice;
   $('btnRecipe').onclick = applyRecipe;
 
-  buildSbInputs();
-  document.querySelectorAll('#sbRatios button').forEach((b) => {
-    b.onclick = () => setSbRatio(b.dataset.ratio);
-  });
-  $('sbGo').onclick = runStoryboard;
-  $('sbAdd').onclick = appendSbRow;
-  setSbRatio(state.sbRatio);
-
   document.querySelectorAll('#ratios button').forEach((b) => {
     b.onclick = () => setRatio(b.dataset.ratio);
   });
@@ -686,8 +532,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') submit();
   });
 
-  // 支持 ?mode=storyboard / ?mode=img2img 直接打开对应模式
+  // 支持 ?mode=img2img 直接打开图生图
   const deep = new URLSearchParams(location.search).get('mode');
-  setMode(deep === 'storyboard' || deep === 'img2img' ? deep : 'txt2img');
+  setMode(deep === 'img2img' ? deep : 'txt2img');
   loadCatalog();
   loadPreload();});

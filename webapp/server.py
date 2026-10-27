@@ -242,22 +242,7 @@ def _worker() -> None:
                 job.error = res.error
             else:
                 job.status = "done"
-                # 故事板：同一批次共用一个目录，文件名加 shotNN_ 前缀，避免重名与串位
-                shot = (job.params.get("storyboard") or {}).get("shot")
                 outputs = list(res.meta.get("outputs", []))
-                if shot:
-                    renamed = []
-                    for p in outputs:
-                        folder, name = os.path.split(p)
-                        target = os.path.join(folder, f"shot{int(shot):02d}_{name}")
-                        try:
-                            if os.path.exists(p):
-                                os.replace(p, target)
-                        except OSError:
-                            target = p
-                        renamed.append(target)
-                    outputs = renamed
-                    res.meta["outputs"] = outputs
                 job.meta = res.meta
                 # meta.outputs 是相对项目根的路径（形如 outputs/web/<id>/x.png），转成 URL
                 job.images = ["/" + p.replace("\\", "/") for p in outputs]
@@ -415,7 +400,9 @@ def generate(
         init_path = os.path.join(job_dir, "init.png")
         _Image.open(io.BytesIO(raw)).convert("RGB").save(init_path)
 
-    # 尺寸：自定义像素 > 显式比例 > 提示词里的画幅 > 参考图 > 模型原生
+    # 尺寸优先级：显式宽高 > 显式比例 > 提示词画幅 > 参考图 > 模型原生
+    # 「像素」档是所有分支共用的基准边长：自动只决定比例，不该把尺度也一并吞掉
+    px = pixels if pixels in (512, 768, 1024) else 512
     if ratio_spec == "custom":
         decision = resolve_size(
             width=width,
@@ -427,13 +414,13 @@ def generate(
         )
     elif ratio_spec == "auto":
         decision = resolve_size(
+            base_override=px,
             prompt=prompt,
             model_key=profile.key,
             init_size=init_size,
             model_native=profile.native_size,
         )
     else:
-        px = pixels if pixels in (512, 768, 1024) else 512
         decision = resolve_size(
             spec=ratio_spec,
             base_override=px,
@@ -482,129 +469,6 @@ def generate(
     QUEUE.put(job_id)
     ensure_worker()
     return JSONResponse({"id": job_id, "status": "queued", "warning": warning})
-
-
-# --------------------------------------------------------------------------------------
-# 故事板：一次提交多条提示词，串行排队生成（单 GPU，串行才是最快）
-# --------------------------------------------------------------------------------------
-BATCHES: dict[str, list[str]] = {}
-SB_MAX_ITEMS = 10
-SB_RATIOS = ("9:16", "16:9")
-
-
-@app.post("/api/storyboard")
-def storyboard(
-    prompts: str = Form(""),
-    ratio: str = Form("9:16"),
-    model: str = Form("sdxl"),
-    precision: str = Form("fp16"),
-    gear: str = Form("lightning"),
-    seed: str = Form(""),
-) -> JSONResponse:
-    """提交一组镜头提示词，返回批次号与 10 个任务 id。"""
-    try:
-        raw = json.loads(prompts)
-        items = raw if isinstance(raw, list) else [str(raw)]
-    except Exception:  # noqa: BLE001
-        items = prompts.split("\n")
-    items = [str(x).strip() for x in items if str(x).strip()][:SB_MAX_ITEMS]
-    if not items:
-        raise HTTPException(status_code=400, detail="至少填写一个镜头提示词")
-    if ratio not in SB_RATIOS:
-        raise HTTPException(status_code=400, detail="画幅只能是 9:16 或 16:9")
-
-    try:
-        profile = resolve_model(model)
-        prec = resolve_precision(precision)
-        q = resolve_quality(gear, profile)
-    except (KeyError, ValueError) as exc:
-        raise HTTPException(status_code=400, detail=str(exc).strip('"'))
-
-    hw = probe_hardware()
-    why = check_precision_support(prec, hw, profile)
-    if why:
-        raise HTTPException(status_code=400, detail=f"精度挡位 {prec.key} 在本机不可用：{why}")
-
-    decision = resolve_size(spec=ratio, model_key=profile.key, model_native=profile.native_size)
-    base_seed = int(seed) if str(seed).strip().isdigit() else None
-    batch_id = uuid.uuid4().hex[:10]
-    # 整个批次共用一个目录：outputs/web/batch_<id>/，所有镜头图都在里面
-    batch_dir = os.path.join(WEB_OUTPUT, f"batch_{batch_id}")
-    os.makedirs(batch_dir, exist_ok=True)
-    job_ids: list[str] = []
-
-    for idx, prompt in enumerate(items):
-        job_id = uuid.uuid4().hex[:12]
-        job_dir = batch_dir
-        job = Job(
-            id=job_id,
-            mode="txt2img",
-            prompt=prompt,
-            params={
-                "negative": "",
-                "model": profile.key,
-                "precision": prec.key,
-                "gear": q.key,
-                "width": decision.width,
-                "height": decision.height,
-                "steps": None,
-                "guidance": None,
-                "seed": (base_seed + idx) if base_seed is not None else None,
-                "batch": 1,
-                "strength": 0.5,
-                "init_image": None,
-                "job_dir": job_dir,
-                "size_source": ratio,
-                "size_note": decision.note,
-                "storyboard": {"batch": batch_id, "shot": idx + 1, "total": len(items)},
-            },
-            warning="",
-        )
-        JOBS[job_id] = job
-        JOB_ORDER.append(job_id)
-        QUEUE.put(job_id)
-        job_ids.append(job_id)
-
-    BATCHES[batch_id] = job_ids
-    ensure_worker()
-    return JSONResponse(
-        {
-            "batch_id": batch_id,
-            "jobs": job_ids,
-            "width": decision.width,
-            "height": decision.height,
-            "total": len(job_ids),
-        }
-    )
-
-
-@app.get("/api/storyboard/{batch_id}")
-def storyboard_status(batch_id: str) -> dict:
-    """批量状态：给前端做进度条与缩略图墙。"""
-    ids = BATCHES.get(batch_id)
-    if not ids:
-        raise HTTPException(status_code=404, detail="批次不存在或已过期")
-
-    items = []
-    for idx, jid in enumerate(ids):
-        job = JOBS.get(jid)
-        if job is None:
-            items.append({"shot": idx + 1, "id": jid, "status": "gone", "url": "", "error": ""})
-            continue
-        items.append(
-            {
-                "shot": idx + 1,
-                "id": jid,
-                "status": job.status,
-                "prompt": job.prompt,
-                "url": job.images[0] if job.images else "",
-                "elapsed": round((job.finished or time.time()) - job.started, 2) if job.started else 0,
-                "error": job.error,
-            }
-        )
-    done = sum(1 for i in items if i["status"] == "done")
-    failed = sum(1 for i in items if i["status"] == "error")
-    return {"batch_id": batch_id, "items": items, "done": done, "failed": failed, "total": len(items)}
 
 
 @app.get("/api/jobs/{job_id}")
