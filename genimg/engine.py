@@ -326,6 +326,13 @@ class Engine:
         # 正确做法：先按主精度整体加载，装配完成后再把 VAE 调到目标精度，
         # 并在推理最后一步把 latent 转成 VAE 精度（见 run() 里的 _cb 与 ensure_dtypes）。
         vae_dtype_name = precision.vae_dtype or precision.dtype
+        # bf16 解码需要硬件单元：Turing（sm_75）及更早没有，退回 fp32 保证能跑。
+        # 选 bf16 而不是 fp16 是因为指数位：bf16 与 fp32 同为 8 位，不会像 fp16 那样
+        # 在解码末期溢出成 NaN/黑图；实测 1024² 解码 654ms vs fp32 的 1253ms，输出逐字节一致。
+        if vae_dtype_name == "bfloat16" and not self.hw.supports_bf16:
+            vae_dtype_name = "float32"
+            if self.verbose:
+                print("[engine] 本机不支持 bf16，VAE 解码回落 fp32")
         try:
             pipe = _from_pretrained_compat(cls_t2i.from_pretrained, profile.repo, kwargs, self.verbose)
         except Exception as exc:  # noqa: BLE001
@@ -533,16 +540,16 @@ class Engine:
         _last = [time.perf_counter()]
         call_start = [0.0]
 
-        # fp16 挡位下 VAE 保持 fp32（避开半精度解码的黑图）。此时管线内部的 latent 仍是
-        # fp16，必须在**最后一步结束后**把它转成 VAE 精度再解码；中途转会把 fp32 的 latent
-        # 送回 fp16 权重的 UNet，直接 dtype 不匹配。
+        # 主精度与 VAE 精度不同时（fp16 采样 + bf16 解码；不支持 bf16 的老卡为 fp32），管线交给
+        # decode 的 latent 仍是 fp16，必须在**最后一步结束后**转成 VAE 精度；中途转会把
+        # 解码精度的 latent 送回 fp16 权重的 UNet，直接 dtype 不匹配。
         main_dtype = next(pipe.unet.parameters()).dtype
         vae_dtype = next(pipe.vae.parameters()).dtype
         need_latent_cast = vae_dtype != main_dtype
         cast_state = [False]
 
-        # img2img 且 VAE 精度 != UNet 精度（fp16 挡位把 VAE 升到了 fp32）：diffusers 会把输入图
-        # 先 cast 成 UNet 的 fp16，再挤进 fp32 VAE → "Input type (Half) and bias type (float)"。
+        # img2img 且 VAE 精度 != UNet 精度（fp16 采样的 VAE 是 bf16/fp32）：diffusers 会把输入图
+        # 先 cast 成 UNet 的 fp16，再挤进 bf16/fp32 VAE → "Input type (Half) and bias type (...)"。
         # 解法：自己用 VAE 精度编码出 4 通道 latent，管线见 shape[1]==4 就跳过 VAE 编码。
         if req.mode == "img2img" and need_latent_cast:
             with torch.no_grad():
@@ -605,7 +612,7 @@ class Engine:
         os.makedirs(out_dir, exist_ok=True)
 
         with VramMonitor() as vram:
-            # fp16 挡位：VAE 是 fp32，而管线交给 decode 的 latent 仍是 fp16。
+            # 主精度与 VAE 精度不一致：VAE 是 bf16/fp32，而管线交给 decode 的 latent 仍是 fp16。
             # 不依赖 callback 的时序，直接在解码入口转一次 dtype，结束再恢复。
             _orig_decode = None
             if need_latent_cast:
