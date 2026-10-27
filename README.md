@@ -141,7 +141,8 @@ python tools\make_sheet.py --manifest outputs\ref_matrix\<model>-<stamp>\manifes
 
 ![SD-Turbo 效果参考矩阵](docs/images/sd-turbo_auto_ratio_matrix.png)
 
-- **2 步出图**，单张 0.4–5s，四个精度几乎一模一样（fp16/bf16 在 512 都是 0.4–1.3s）。
+- **2 步出图**，单张纯推理 0.4–5s，四个精度几乎一模一样（fp16/bf16 在 512 都是 0.4–1.3s）；
+  512 首图含权重加载约 10 秒，之后每张 1 秒内。
 - 512 主体完整；**1024 出现双主体**（2 步 + 超原生面积，主体先验直接复制）。
 - 适合当"探提示词/探构图"的草稿机，不适合当成品分辨率。
 
