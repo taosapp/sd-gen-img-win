@@ -332,7 +332,7 @@ def generate(
     precision: str = Form("fp16"),
     gear: str = Form(""),
     ratio: str = Form("auto"),
-    pixels: int = Form(512),
+    pixels: int | None = Form(None),
     size: str = Form("auto"),
     width: int = Form(512),
     height: int = Form(512),
@@ -401,8 +401,9 @@ def generate(
         _Image.open(io.BytesIO(raw)).convert("RGB").save(init_path)
 
     # 尺寸优先级：显式宽高 > 显式比例 > 提示词画幅 > 参考图 > 模型原生
-    # 「像素」档是所有分支共用的基准边长：自动只决定比例，不该把尺度也一并吞掉
-    px = pixels if pixels in (512, 768, 1024) else 512
+    # 「像素」档是所有分支共用的基准边长；未传（API 直调不选档）回落模型原生基准，
+    # 避免把 SDXL 静默压进 512 档（界面始终显式传档，行为不变）
+    px = pixels if pixels in (512, 768, 1024) else None
     if ratio_spec == "custom":
         decision = resolve_size(
             width=width,
