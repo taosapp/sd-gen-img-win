@@ -78,7 +78,7 @@ powershell -File run.ps1 "a panda, cinematic" -m sd-turbo -g turbo -s 512x512
 ```powershell
 # 网页界面（推荐）：双击 web.bat，自动预热默认挡位并打开浏览器
 powershell -ExecutionPolicy Bypass -File web.ps1 -Port 8080 -Open
-powershell -ExecutionPolicy Bypass -File web.ps1 -Preload:$false     # 不预热
+powershell -ExecutionPolicy Bypass -File web.ps1 -NoPreload  # 不预热（写成 -Preload:$false 会透传失败）
 
 # 命令行
 powershell -File run.ps1 "a panda on the grassland, sunny" -m sdxl -p bf16 -g balanced -s 1024x1024
@@ -260,7 +260,7 @@ python tools\make_sheet.py --manifest outputs\ref_matrix\<model>-<stamp>\manifes
 7. **长提示词被静默截断**：CLIP 单次只吃 **77 token**。实测一份 4942 字符的海报提示词是 835 token，
    **约 91% 被丢掉**，"下半部分画插画"这类版式指令根本没进模型。版式类需求要么用两段式拼版（代码控制），
    要么换支持版式控制的模型；改提示词没用。
-8. **中文提示词效果弱**：CLIP 以英文语料为主。内置 116 条离线词典把风格/画质/光影翻成英文，
+8. **中文提示词效果弱**：CLIP 以英文语料为主。内置 163 条离线词典把风格/画质/光影/材质翻成英文，
    剔除"请帮我""把图片改为"这类无效措辞；验证方式是同参数同种子与直接写英文**像素完全一致**（SHA256 相同）。
    词典覆盖不到的自由描述（主体、动作、关系）会原样保留并提示，不假装翻译。
 9. **风格词被无视**（如 `American comic style` 出照片）：旧模型听不懂抽象风格名。
@@ -278,6 +278,11 @@ python tools\make_sheet.py --manifest outputs\ref_matrix\<model>-<stamp>\manifes
     修法：给 `from_pretrained`/`snapshot_download` **显式传 `cache_dir`**。
 14. **模型已缓存后应完全离线**：加载时用 `local_files_only`，镜像抽风（实测遇到 403）也不影响出图；
     反之未缓存且断网时，直接提示"先跑 `tools\fetch_models.py`"，而不是丢一堆堆栈。
+15. **API 不传像素档时 SDXL 被压进 512 基准**：`/api/generate` 曾把缺省 `pixels` 硬编码为 512，
+    显式比例分支又把它当 `base_override` 传进 `sizing.resolve`（优先级高于模型原生分辨率），
+    于是 SDXL + size=9:16 出 320×576——正好落进 512 的分布外退化区（§3.1）。修法：`pixels`
+    未传时回落**模型原生基准**（SDXL 9:16 → 768×1344）；界面始终显式传像素档，行为不变。
+    由 `tools\test_ratio_916.py` 复测发现。
 
 ### 3.6 已知限制 / 未完成
 
@@ -291,3 +296,24 @@ python tools\make_sheet.py --manifest outputs\ref_matrix\<model>-<stamp>\manifes
 - 控制台里 `should be kept in float32: []`、LoRA 的 `No LoRA keys ...`、`upcast_vae is deprecated`
   这几条是无害播报（方括号为空说明无需保留的模块），已按消息关键字精确屏蔽；
   `Token indices sequence length is longer than ...` 是有用提示（提示词超长），保留。
+
+### 3.7 提示词体检的规范借鉴：Qwen-Image-2.1 官方规范（2026-10）
+
+`advice.py` 里“要素完整度 / 空泛画质词 / 图内文字”三类体检借鉴自阿里巴巴 Qwen-Image-2.1
+官方提示词重写规范（经 [iamyoki/qwen-image-2.1-skill](https://github.com/iamyoki/qwen-image-2.1-skill) 转述，Apache-2.0）。
+该规范为其长上下文文本编码器设计（400–500 词“观察者长文”），**不能照搬**到本项目的
+CLIP 77-token 预算（§3.5 第 7 条：超长部分静默截断），只压缩采纳了它的“要素清单”思想：
+
+1. **要素完整度**：一条好提示词 = 媒介/风格 + 主体 + 光影 + 镜头/构图 + 色调/氛围。
+   主体由你写，其余缺两项以上时体检给一条“缺啥补啥”提示，示例词全部是词典已收录的词
+   （中文写会自动转英文）；
+2. **空泛画质词**：`masterpiece / 8K / award winning` 不描述任何画面内容，提示词超过约
+   40 token 时点名提示并算出可省的 token 数（词典仍会照翻“大师作品”，不静默丢意图）；
+3. **图内文字**：引号里的字建议 1–3 个短词并写明位置与材质；整段版式走两段式拼版
+   （`genimg/poster.py`）；
+4. **词典扩充**：按官方 cheat sheet 增补光照/材质/媒介/配色词条（116 → 163 条，`zh_prompt.py`）；
+5. **画幅关键词**：`手机壁纸 9:16`、`证件照 3:4`、`全景照片 2:1`、`A4 5:7` 等直接触发画幅决策
+   （`sizing.py`；模糊写法如“熊猫全景”不会误触发）。
+
+**明确不搬**：Edit 模式的属性解耦（“把 A 换到 B，背景别动”）——Qwen-Image-Edit 是指令式编辑，
+本项目图生图是噪声强度式（§3.5 第 4/5 条），提示词里写“保持背景不变”没有对应机制。

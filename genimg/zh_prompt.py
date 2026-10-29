@@ -9,7 +9,7 @@ sd15 / sdxl / sd-turbo 的文本编码器都是 CLIP（英文语料为主），�
 为什么只做离线词典
 ------------------
 本项目只内置**离线词典翻译**：不联网、不需要任何外部服务、不涉及任何凭据，
-启动零延迟、结果可预期。词典覆盖风格、画质、光影、构图、颜色与常见场景（当前 116 条），
+启动零延迟、结果可预期。词典覆盖风格、画质、光影、材质、构图、颜色与常见场景（当前 163 条），
 足以应付"把图片改成水彩/油画/赛博朋克风，细节丰富"这类常见用法。
 
 词典覆盖不到的自由描述（如"一只戴墨镜的熊猫在月球上喝咖啡"）会被**原样保留**并在结果里
@@ -166,6 +166,60 @@ _GLOSSARY_RAW = {
     "街景": "street scene",
     "室内": "indoor",
     "室外": "outdoor",
+    # —— 以下 2026-10 增补：取自 Qwen-Image-2.1 官方 cheat sheet 中 CLIP 可用的子集 ——
+    # 光影
+    "暖光": "warm lighting",
+    "冷光": "cool lighting",
+    "金色时刻": "golden hour lighting",
+    "轮廓光": "rim lighting",
+    "丁达尔光": "god rays",
+    "丁达尔": "god rays",
+    "剪影": "silhouette",
+    "烛光": "candlelight",
+    "月光": "moonlight",
+    "晨光": "morning light",
+    "光斑": "dappled light",
+    "舞台光": "stage lighting",
+    # 材质（原规范原则：写材质，不要只写名词）
+    "拉丝金属": "brushed metal",
+    "磨砂玻璃": "frosted glass",
+    "抛光铜": "polished copper",
+    "黄铜": "brass",
+    "做旧木": "weathered wood",
+    "亚麻布": "coarse linen",
+    "亚麻": "linen",
+    "丝绸": "silk",
+    "天鹅绒": "velvet",
+    "大理石": "marble",
+    "混凝土": "concrete",
+    "锈迹": "rust",
+    "陶瓷": "glossy ceramic",
+    # 媒介 / 风格
+    "等距": "isometric render",
+    "黏土动画": "claymation",
+    "水粉画": "gouache painting",
+    "水粉": "gouache",
+    "浮世绘": "ukiyo-e",
+    "木刻": "woodcut",
+    "移轴": "tilt-shift",
+    "纪实摄影": "documentary photography",
+    "纪实": "documentary",
+    "胶片颗粒": "film grain",
+    "宝丽来": "polaroid",
+    "霓虹招牌": "neon signage",
+    # 配色
+    "大地色": "earthy tones",
+    "马卡龙色": "pastel colors",
+    "荧光色": "fluorescent colors",
+    "青橙色调": "teal and orange color grading",
+    # 构图 / 镜头
+    "鸟瞰": "bird's eye view",
+    "鱼眼": "fisheye",
+    "航拍": "aerial view",
+    # 图内文字载体
+    "招牌": "signage",
+    "标语": "slogan",
+    "广告牌": "billboard",
 }
 
 _GLOSSARY = sorted(_GLOSSARY_RAW.items(), key=lambda kv: len(kv[0]), reverse=True)
